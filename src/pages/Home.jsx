@@ -37,15 +37,43 @@ export const Home = () => {
       </section>
 
       {/* 📊 Features Section */}
-      <section className="max-w-6xl mx-auto grid md:grid-cols-2 gap-10 mt-20">
-        <FeatureBox
-          title="Real-Time Risk Reports"
-          description="Instantly verify renter history, ID, and risk score with RentFax's powerful reporting system."
-        />
-        <FeatureBox
-          title="Fraud Prevention Tools"
-          description="AI-driven fraud detection alerts you to high-risk applicants before they cause damage or loss."
-        />
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-7xl mx-auto mt-20 px-6">
+        
+        {/* Feature 1 */}
+        <div className="flex flex-col items-center text-center p-6 border rounded-lg shadow-sm">
+          <img src="/icons/shield.svg" alt="Shield" className="w-12 h-12 mb-4" />
+          <h3 className="font-bold text-xl mb-2">Real-Time Risk Scores</h3>
+          <p className="text-gray-600 text-sm">
+            Instantly evaluate customer reliability before renting.
+          </p>
+        </div>
+
+        {/* Feature 2 */}
+        <div className="flex flex-col items-center text-center p-6 border rounded-lg shadow-sm">
+          <img src="/icons/flash.svg" alt="Flash" className="w-12 h-12 mb-4" />
+          <h3 className="font-bold text-xl mb-2">Lightning-Fast Reports</h3>
+          <p className="text-gray-600 text-sm">
+            Get detailed reports in under 60 seconds.
+          </p>
+        </div>
+
+        {/* Feature 3 */}
+        <div className="flex flex-col items-center text-center p-6 border rounded-lg shadow-sm">
+          <img src="/icons/lock.svg" alt="Lock" className="w-12 h-12 mb-4" />
+          <h3 className="font-bold text-xl mb-2">Built-In Fraud Detection</h3>
+          <p className="text-gray-600 text-sm">
+            Proactively detect and block high-risk renters.
+          </p>
+        </div>
+
+        {/* Feature 4 */}
+        <div className="flex flex-col items-center text-center p-6 border rounded-lg shadow-sm">
+          <img src="/icons/globe.svg" alt="Globe" className="w-12 h-12 mb-4" />
+          <h3 className="font-bold text-xl mb-2">Global Scalability</h3>
+          <p className="text-gray-600 text-sm">
+            Designed for rental businesses of all sizes.
+          </p>
+        </div>
       </section>
 
       {/* ✉️ Newsletter Signup Section */}

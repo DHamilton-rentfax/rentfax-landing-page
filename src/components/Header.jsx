@@ -4,9 +4,9 @@ import { Link } from "react-router-dom";
 export const Header = () => {
   return (
     <header className="flex justify-between items-center p-6 max-w-7xl mx-auto">
-      <Link to="/" className="text-2xl font-bold">
-        RentFax
-      </Link>
+      <div className="text-2xl font-bold">
+        <Link to="/">RentFax</Link>
+      </div>
       <nav className="space-x-6 hidden md:flex items-center">
         <Link to="/" className="hover:underline">
           Home
