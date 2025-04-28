@@ -10,8 +10,9 @@ Protect your vehicles, homes, and assets with real-time verification and risk an
 ## 🚀 Live Site
 
 [Visit RentFax Landing Page](https://rentfax.io)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/import/project?template=https://github.com/DHamilton-rentfax/rentfax-landing-page)
 
----
+
 
 ## 📋 Features
 
