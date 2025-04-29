@@ -5,13 +5,14 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
 
-  // Make React Router use its production build (no missing chunks)
+  // 1️⃣ Tell React & React Router we’re in production mode
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
 
-  // Tell Vite to prefer the "production" export condition
   resolve: {
-    conditions: ['production', 'import', 'module', 'default'],
+    // 2️⃣ Force Vite to use React Router’s “import” (ESM) build first,
+    //    which in v7 is the bundled, chunk-free version.
+    conditions: ['import', 'default'],
   },
 })
