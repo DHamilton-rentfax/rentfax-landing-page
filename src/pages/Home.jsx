@@ -1,119 +1,124 @@
 // src/pages/Home.jsx
-import { useState, useEffect } from "react";
-import { FeatureBox } from "../components/FeatureBox";
-import { Footer } from "../components/Footer";
+import React, { useState, useEffect } from "react";
+import { ShieldCheck, Zap, Lock, Globe } from "lucide-react";
 import { LoadingSkeleton } from "../components/LoadingSkeleton";
+import { Footer } from "../components/Footer";
+
+const features = [
+  {
+    Icon: ShieldCheck,
+    title: "Real-Time Risk Scores",
+    desc: "Instantly evaluate customer reliability before renting.",
+  },
+  {
+    Icon: Zap,
+    title: "Lightning-Fast Reports",
+    desc: "Get detailed reports in under 60 seconds.",
+  },
+  {
+    Icon: Lock,
+    title: "Built-In Fraud Detection",
+    desc: "Proactively detect and block high-risk renters.",
+  },
+  {
+    Icon: Globe,
+    title: "Global Scalability",
+    desc: "Designed for rental businesses of all sizes.",
+  },
+];
 
 export const Home = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1000);
+    const timer = setTimeout(() => setLoading(false), 800);
     return () => clearTimeout(timer);
   }, []);
 
-  if (loading) {
-    return <LoadingSkeleton />;
-  }
+  if (loading) return <LoadingSkeleton />;
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-6 space-y-16 bg-gray-50 dark:bg-gray-900">
-
-      {/* 🚀 Hero Section */}
-      <section className="text-center mt-20">
-        <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-          Welcome to RentFax
+    <main className="flex flex-col min-h-screen bg-white text-gray-900">
+      {/* Hero */}
+      <section className="pt-24 pb-16 text-center px-4">
+        <h1 className="text-5xl font-extrabold">
+          Rent Smarter. Rent Safer. RentFax.
         </h1>
-        <p className="text-gray-600 dark:text-gray-300 max-w-xl mx-auto mb-10">
-          The smarter way to assess renter risk before you rent.  
-          Protect your vehicles, homes, and assets with real-time verification and risk analysis.
+        <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+          Your renter’s risk — measured instantly. Protect your assets with
+          real-time verification and fraud detection.
         </p>
+        {/* Hero “Join Waitlist” scrolls to form */}
         <a
           href="#newsletter"
-          className="inline-block px-8 py-4 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition"
+          className="mt-8 inline-block bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition"
         >
-          Join Waitlist
+          Join the Waitlist
         </a>
       </section>
 
-      {/* 📊 Features Section */}
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-7xl mx-auto mt-20 px-6">
-        
-        {/* Feature 1 */}
-        <div className="flex flex-col items-center text-center p-6 border rounded-lg shadow-sm">
-          <img src="/icons/shield.svg" alt="Shield" className="w-12 h-12 mb-4" />
-          <h3 className="font-bold text-xl mb-2">Real-Time Risk Scores</h3>
-          <p className="text-gray-600 text-sm">
-            Instantly evaluate customer reliability before renting.
-          </p>
-        </div>
-
-        {/* Feature 2 */}
-        <div className="flex flex-col items-center text-center p-6 border rounded-lg shadow-sm">
-          <img src="/icons/flash.svg" alt="Flash" className="w-12 h-12 mb-4" />
-          <h3 className="font-bold text-xl mb-2">Lightning-Fast Reports</h3>
-          <p className="text-gray-600 text-sm">
-            Get detailed reports in under 60 seconds.
-          </p>
-        </div>
-
-        {/* Feature 3 */}
-        <div className="flex flex-col items-center text-center p-6 border rounded-lg shadow-sm">
-          <img src="/icons/lock.svg" alt="Lock" className="w-12 h-12 mb-4" />
-          <h3 className="font-bold text-xl mb-2">Built-In Fraud Detection</h3>
-          <p className="text-gray-600 text-sm">
-            Proactively detect and block high-risk renters.
-          </p>
-        </div>
-
-        {/* Feature 4 */}
-        <div className="flex flex-col items-center text-center p-6 border rounded-lg shadow-sm">
-          <img src="/icons/globe.svg" alt="Globe" className="w-12 h-12 mb-4" />
-          <h3 className="font-bold text-xl mb-2">Global Scalability</h3>
-          <p className="text-gray-600 text-sm">
-            Designed for rental businesses of all sizes.
-          </p>
+      {/* Features */}
+      <section className="px-4">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {features.map(({ Icon, title, desc }) => (
+            <FeatureCard key={title} Icon={Icon} title={title} desc={desc} />
+          ))}
         </div>
       </section>
 
-      {/* ✉️ Newsletter Signup Section */}
+      {/* About */}
+      <section className="mt-20 text-center px-4">
+        <h2 className="text-3xl font-semibold mb-4">About RentFax</h2>
+        <p className="max-w-2xl mx-auto text-gray-600">
+          RentFax is your trusted partner in rental risk assessment. We protect
+          rental businesses from fraud, defaults, and costly damages — before the
+          keys change hands.
+        </p>
+      </section>
+
+      {/* Newsletter / Waitlist Form */}
       <section
         id="newsletter"
-        className="relative py-20 px-6 md:px-12 bg-gradient-to-r from-black via-gray-800 to-black text-white overflow-hidden rounded-2xl shadow-2xl max-w-7xl mx-auto my-20"
+        className="mt-20 py-16 px-6 bg-gray-100 text-center rounded-lg mx-4 md:mx-0"
       >
-        <div className="relative z-10 flex flex-col items-center text-center space-y-6">
-          <h2 className="text-4xl md:text-5xl font-extrabold leading-tight">
-            Be the First to Experience RentFax
-          </h2>
-          <p className="text-gray-300 max-w-2xl">
-            Join our exclusive waitlist and get early access to a smarter way to assess renters. Stay ahead of the future!
-          </p>
-
-          <form
-            action="https://formspree.io/f/mdkgkrwd" // TODO: Replace with your actual Formspree/Brevo ID
-            method="POST"
-            className="flex flex-col md:flex-row gap-4 mt-6 w-full max-w-2xl"
+        <h3 className="text-2xl font-bold mb-4">Stay in the Loop</h3>
+        <p className="text-gray-700 mb-6 max-w-xl mx-auto">
+          Subscribe for product updates, industry insights, and early access
+          invites.
+        </p>
+        <form
+          action="https://formspree.io/f/mdkgkrwd"
+          method="POST"
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-xl mx-auto"
+        >
+          <input
+            type="email"
+            name="email"
+            required
+            placeholder="Enter your email"
+            className="flex-1 p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            type="submit"
+            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition"
           >
-            <input
-              type="email"
-              name="email"
-              required
-              placeholder="Enter your email address"
-              className="flex-1 p-4 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-            <button
-              type="submit"
-              className="px-6 py-4 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold shadow-lg transition-all"
-            >
-              Join Waitlist
-            </button>
-          </form>
-
-          <p className="text-gray-400 text-xs mt-4">
-            No spam. Only important RentFax updates.
-          </p>
-        </div>
+            Subscribe
+          </button>
+        </form>
       </section>
-   </main>
+
+      {/* Footer */}
+      <Footer />
+    </main>
   );
 };
+
+function FeatureCard({ Icon, title, desc }) {
+  return (
+    <div className="flex flex-col items-center text-center p-6 border rounded-lg hover:shadow-lg transition">
+      <Icon className="w-10 h-10 text-black mb-3" />
+      <h4 className="font-bold text-xl mb-2">{title}</h4>
+      <p className="text-gray-600">{desc}</p>
+    </div>
+  );
+}
