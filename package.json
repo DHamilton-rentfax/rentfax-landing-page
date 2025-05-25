@@ -1,0 +1,49 @@
+{
+  "name": "rentfax-nextjs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "restart": "./kill-and-start.sh"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.817.0",
+    "@aws-sdk/s3-request-presigner": "^3.817.0",
+    "@tiptap/react": "^2.12.0",
+    "@tiptap/starter-kit": "^2.12.0",
+    "@upstash/redis": "^1.34.9",
+    "aws-sdk": "^2.1692.0",
+    "bcryptjs": "^3.0.2",
+    "chart.js": "^4.4.9",
+    "cookie": "^1.0.2",
+    "cors": "^2.8.5",
+    "dompurify": "^3.2.5",
+    "file-saver": "^2.0.5",
+    "fuse.js": "^7.1.0",
+    "gray-matter": "^4.0.3",
+    "html-react-parser": "^5.2.5",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.16.0",
+    "mongoose": "^8.15.0",
+    "multer": "^2.0.0",
+    "next": "14.1.0",
+    "next-connect": "^0.12.2",
+    "react": "18.2.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "18.2.0",
+    "react-helmet-async": "^2.0.5",
+    "react-hot-toast": "^2.5.2",
+    "react-markdown": "^10.1.0",
+    "react-quill": "^2.0.0",
+    "redis": "^5.1.0",
+    "slugify": "^1.6.6",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17"
+  }
+}
