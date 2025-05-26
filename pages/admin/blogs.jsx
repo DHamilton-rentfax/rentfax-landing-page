@@ -11,36 +11,36 @@ export default function AdminBlogs() {
   const { user, logout } = useAuth()
   const router = useRouter()
 
-  // CRUD & display state
+  // all posts (including soft-deleted)
   const [blogs, setBlogs] = useState([])
+  // filtered view
   const [filtered, setFiltered] = useState([])
+  // simple UI filters
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("all")
   const [status, setStatus] = useState("all")
+  // pagination
   const [page, setPage] = useState(1)
   const limit = 10
 
-  // Trash / restore state
+  // trash toggle + modal
   const [showTrash, setShowTrash] = useState(false)
   const [modalSlug, setModalSlug] = useState(null)
 
-  // 1️⃣ Load all posts (admin route should include deleted ones)
+  // 1️⃣ Load everything on mount
   useEffect(() => {
     if (!user) return router.replace("/admin/login")
     api
       .get("/api/auth/blogs")
       .then((data) => {
         setBlogs(data)
-        setFiltered(data)
       })
       .catch(() => toast.error("Failed to load posts"))
   }, [user])
 
-  // 2️⃣ Apply filtering: live vs trash + search/category/status
+  // 2️⃣ Whenever blogs or any filter changes, re-compute filtered list
   useEffect(() => {
-    let list = blogs.filter((b) =>
-      showTrash ? b.deleted : !b.deleted
-    )
+    let list = blogs.filter((b) => (showTrash ? b.deleted : !b.deleted))
 
     if (search.trim()) {
       list = list.filter((p) =>
@@ -48,41 +48,40 @@ export default function AdminBlogs() {
       )
     }
     if (category !== "all") {
-      list = list.filter(
-        (p) => (p.category || "uncategorized") === category
-      )
+      list = list.filter((p) => (p.category || "uncategorized") === category)
     }
     if (status !== "all") {
-      list = list.filter(
-        (p) => (p.status || "published") === status
-      )
+      list = list.filter((p) => (p.status || "published") === status)
     }
 
     setFiltered(list)
     setPage(1)
   }, [blogs, showTrash, search, category, status])
 
-  // pagination slice
+  // pagination
   const totalPages = Math.ceil(filtered.length / limit)
   const paginated = filtered.slice((page - 1) * limit, page * limit)
 
-  // 3️⃣ Navigate to editor
   const handleEdit = (slug) => {
     router.push(`/admin/editor?edit=${slug}`)
   }
 
-  // 4️⃣ Soft-delete (move to trash)
+  // 4️⃣ Soft-delete or permanent delete
   const confirmDelete = (slug) => setModalSlug(slug)
   const handleDelete = async () => {
     try {
-      await api.delete(`/api/blogs/${modalSlug}`)
+      // if viewing trash, this is permanent delete
+      const url = showTrash
+        ? `/api/blogs/${modalSlug}?action=destroy`
+        : `/api/blogs/${modalSlug}`
+      await api.delete(url)
       toast.success(showTrash ? "Deleted permanently" : "Moved to trash")
       setBlogs((b) =>
-        b.map((x) =>
-          x.slug === modalSlug
-            ? { ...x, deleted: showTrash ? true : true }
-            : x
-        )
+        showTrash
+          ? b.filter((x) => x.slug !== modalSlug)
+          : b.map((x) =>
+              x.slug === modalSlug ? { ...x, deleted: true } : x
+            )
       )
     } catch {
       toast.error("Action failed")
@@ -91,22 +90,20 @@ export default function AdminBlogs() {
     }
   }
 
-  // 5️⃣ Restore from trash
+  // 5️⃣ Restore
   const handleRestore = async (slug) => {
     try {
       await api.patch(`/api/blogs/${slug}?action=restore`)
       toast.success("Restored post")
       setBlogs((b) =>
-        b.map((x) =>
-          x.slug === slug ? { ...x, deleted: false } : x
-        )
+        b.map((x) => (x.slug === slug ? { ...x, deleted: false } : x))
       )
     } catch {
       toast.error("Restore failed")
     }
   }
 
-  // Helpers
+  // dropdown options
   const categories = [
     "all",
     ...new Set(blogs.map((b) => b.category || "uncategorized")),
@@ -115,7 +112,7 @@ export default function AdminBlogs() {
 
   return (
     <div className="w-full max-w-[90vw] mx-auto px-8 py-8">
-      {/* Title + Toggle Live/Trash */}
+      {/* ─ Title & Live/Trash toggle ────────────────────────────── */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Admin Blog Manager</h1>
         <label className="flex items-center gap-2 text-sm">
@@ -123,12 +120,13 @@ export default function AdminBlogs() {
             type="checkbox"
             checked={showTrash}
             onChange={() => setShowTrash((v) => !v)}
+            className="form-checkbox"
           />
           {showTrash ? "Viewing Trash" : "Viewing Live"}
         </label>
       </div>
 
-      {/* Filters + Actions */}
+      {/* ─ Filters & Actions ─────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex flex-wrap items-center gap-4 flex-1">
           <input
@@ -165,20 +163,20 @@ export default function AdminBlogs() {
         <div className="flex items-center gap-4">
           <Link
             href="/admin/editor"
-            className="inline-flex items-center justify-center bg-indigo-600 text-white px-4 py-2 rounded shadow"
+            className="inline-flex items-center bg-indigo-600 text-white px-4 py-2 rounded shadow"
           >
             + New Post
           </Link>
           <button
             onClick={logout}
-            className="inline-flex items-center justify-center bg-red-500 text-white px-4 py-2 rounded shadow"
+            className="inline-flex items-center bg-red-500 text-white px-4 py-2 rounded shadow"
           >
             Logout
           </button>
         </div>
       </div>
 
-      {/* Posts Table */}
+      {/* ─ Posts Table ───────────────────────────────────────────── */}
       <div className="overflow-x-auto mb-6">
         <table className="min-w-full table-auto border">
           <thead className="bg-gray-100">
@@ -255,10 +253,7 @@ export default function AdminBlogs() {
             ))}
             {paginated.length === 0 && (
               <tr>
-                <td
-                  colSpan={6}
-                  className="text-center py-6 text-gray-500"
-                >
+                <td colSpan={6} className="text-center py-6 text-gray-500">
                   No posts found.
                 </td>
               </tr>
@@ -267,7 +262,7 @@ export default function AdminBlogs() {
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* ─ Pagination ────────────────────────────────────────────── */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mb-8">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(
@@ -288,7 +283,7 @@ export default function AdminBlogs() {
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* ─ Confirm Modal ─────────────────────────────────────────── */}
       <ConfirmModal
         open={!!modalSlug}
         title={

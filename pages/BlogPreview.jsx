@@ -1,39 +1,73 @@
-// src/pages/BlogPreview.jsx
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { getBlogBySlug } from '../services/BlogApi';
+// pages/BlogPreview.jsx
+import React, { useEffect, useState } from "react"
+import { useRouter } from "next/router"
+import Link from "next/link"
 
 export default function BlogPreview() {
-  const { slug } = useParams();
-  const [blog, setBlog] = useState(null);
+  const router = useRouter()
+  const { slug } = router.query
+  const [blog, setBlog] = useState(null)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    const fetchBlog = async () => {
+    if (!slug) return
+    ;(async () => {
       try {
-        const data = await getBlogBySlug(slug);
-        setBlog(data);
+        const res = await fetch(`/api/blogs/${slug}`)
+        if (!res.ok) throw new Error(`Blog not found (${res.status})`)
+        const data = await res.json()
+        setBlog(data)
       } catch (err) {
-        console.error('Failed to fetch blog', err);
+        console.error(err)
+        setError(err.message)
       }
-    };
-    fetchBlog();
-  }, [slug]);
+    })()
+  }, [slug])
 
-  if (!blog) return <div className="p-8">Loading...</div>;
+  if (error) {
+    return (
+      <div className="p-8 text-center text-red-500">
+        {error}
+      </div>
+    )
+  }
+
+  if (!blog) {
+    return <div className="p-8 text-center">Loading…</div>
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-4xl font-bold mb-2">{blog.title}</h1>
+
       <div className="text-gray-600 mb-4">
-        By {blog.author} • {new Date(blog.date).toLocaleDateString()} • {blog.status}
+        By{" "}
+        <Link href={`/authors/${blog.authorSlug || blog.author}`}>
+          <span className="font-medium text-indigo-600 hover:underline cursor-pointer">
+            {blog.author}
+          </span>
+        </Link>{" "}
+        •{" "}
+        {new Date(blog.date).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}{" "}
+        • {blog.status}
       </div>
+
       {blog.image && (
-        <img src={blog.image} alt="Cover" className="rounded-lg mb-6" />
+        <img
+          src={blog.image}
+          alt={blog.title}
+          className="w-full rounded-lg mb-6 object-cover"
+        />
       )}
-      <div
+
+      <article
         className="prose max-w-none"
         dangerouslySetInnerHTML={{ __html: blog.content }}
       />
     </div>
-  );
+  )
 }

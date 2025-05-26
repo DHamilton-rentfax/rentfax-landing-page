@@ -8,9 +8,8 @@ export default async function handler(req, res) {
   const { slug, action } = req.query
 
   try {
-    // 1) GET a single post (only non-deleted)
+    // 1️⃣ GET a single post (only non-deleted)
     if (req.method === "GET" && !action) {
-      // Fetch plain JS object
       const blog = await Blog.findOne({ slug, deleted: false }).lean()
       if (!blog) return res.status(404).json({ error: "Blog not found" })
 
@@ -20,7 +19,6 @@ export default async function handler(req, res) {
       const redisViews = parseInt((await redis.get(redisKey)) || "0", 10)
       const totalViews = (blog.views || 0) + redisViews
 
-      // Map featuredImage → image for front-end
       return res.status(200).json({
         ...blog,
         views: totalViews,
@@ -28,7 +26,7 @@ export default async function handler(req, res) {
       })
     }
 
-    // 2) Increment views (Redis & MongoDB)
+    // 2️⃣ Increment views (Redis & MongoDB)
     if (req.method === "POST" && action === "view") {
       const blog = await Blog.findOne({ slug })
       if (!blog) return res.status(404).json({ error: "Blog not found" })
@@ -37,7 +35,6 @@ export default async function handler(req, res) {
       const redisKey = `view:blog:${slug}:${today}`
       await redis.incr(redisKey)
 
-      // Increment counters in MongoDB
       await Blog.updateOne(
         { slug },
         {
@@ -49,7 +46,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: "View counted" })
     }
 
-    // 3) Update any field (including full edit)
+    // 3️⃣ Full update (PUT)
     if (req.method === "PUT") {
       const updated = await Blog.findOneAndUpdate(
         { slug },
@@ -59,14 +56,13 @@ export default async function handler(req, res) {
       if (!updated)
         return res.status(404).json({ error: "Blog not found for update" })
 
-      // Ensure front-end sees `image` too
       return res.status(200).json({
         ...updated,
         image: updated.featuredImage || "",
       })
     }
 
-    // 4) Restore soft-deleted post
+    // 4️⃣ Restore soft-deleted post (PATCH ?action=restore)
     if (req.method === "PATCH" && action === "restore") {
       const restored = await Blog.findOneAndUpdate(
         { slug },
@@ -82,7 +78,7 @@ export default async function handler(req, res) {
       })
     }
 
-    // 5) Soft-delete (move to trash)
+    // 5️⃣ Soft-delete (move to trash) on DELETE
     if (req.method === "DELETE") {
       const trashed = await Blog.findOneAndUpdate(
         { slug },

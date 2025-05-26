@@ -27,11 +27,13 @@ export default function BlogEditor({ post, setPost }) {
     },
   })
 
-  // ── Auto-save draft after 3s inactivity ───────────────────────
+  // ── Auto‐save draft after 3s inactivity ───────────────────────
   useEffect(() => {
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(() => handleSave(true, true), 3000)
-    return () => clearTimeout(saveTimeout.current)
+    return () => {
+      clearTimeout(saveTimeout.current)
+    }
   }, [post])
 
   // ── Save (POST for new, PUT for edit) ─────────────────────────
@@ -48,19 +50,31 @@ export default function BlogEditor({ post, setPost }) {
     }
 
     try {
+      let data
       if (isEdit) {
-        await api.put(`/api/blogs/${routeSlug}`, payload)
+        // UPDATE existing
+        const res = await api.put(`/api/blogs/${routeSlug}`, payload)
+        data = await res.json()
       } else {
-        await api.post("/api/blogs", payload)
+        // CREATE new
+        const res = await api.post("/api/blogs", payload)
+        data = await res.json()
+
+        // switch into edit‐mode
+        router.replace({
+          pathname: router.pathname,
+          query: { ...router.query, slug: data.slug },
+        })
       }
+
+      setPost((p) => ({ ...p, ...data }))
 
       if (!isAuto) {
         toast.success(isDraft ? "Draft saved!" : "Published!")
         if (!isDraft && !isEdit) {
-          router.push(`/blogs/${newSlug}`)
+          router.push(`/blogs/${data.slug}`)
         }
       }
-      // if editing a published post, stay on page
     } catch (err) {
       console.error("Save error:", err)
       if (!isAuto) toast.error("Save failed")
@@ -88,9 +102,9 @@ export default function BlogEditor({ post, setPost }) {
 
     try {
       const res = await fetch("/api/upload", { method: "POST", body: formData })
+      if (!res.ok) throw new Error("Upload failed")
       const data = await res.json()
 
-      // ★ write it into your post state:
       setPost((prev) => ({ ...prev, featuredImage: data.url }))
       setImagePreview(data.url)
       toast.success("Image uploaded")
@@ -101,7 +115,7 @@ export default function BlogEditor({ post, setPost }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Controls */}
       <div className="flex gap-2">
         <button
@@ -152,13 +166,13 @@ export default function BlogEditor({ post, setPost }) {
       />
 
       {/* Featured Image */}
-      <label className="block">Featured Image</label>
+      <label className="block font-medium">Featured Image</label>
       <input type="file" accept="image/*" onChange={handleImageUpload} />
       {imagePreview && (
         <img
           src={imagePreview}
           alt="Preview"
-          className="w-full max-h-64 object-cover rounded"
+          className="w-full max-h-64 object-cover rounded mt-2"
         />
       )}
 
@@ -180,10 +194,14 @@ export default function BlogEditor({ post, setPost }) {
 
       {/* Editor / Preview */}
       {!showPreview ? (
-        <EditorContent
-          editor={editor}
-          className="border p-4 rounded min-h-[300px]"
-        />
+        editor ? (
+          <EditorContent
+            editor={editor}
+            className="border p-4 rounded min-h-[300px]"
+          />
+        ) : (
+          <p>Loading editor…</p>
+        )
       ) : (
         <div className="prose border p-4 rounded">
           <h1>{post.title}</h1>

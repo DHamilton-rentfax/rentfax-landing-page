@@ -20,22 +20,21 @@ export default function AdminLogin() {
 
     const success = await login(form.email, form.password)
     if (!success) {
-      // login() already shows toast.error
       setLoading(false)
       return
     }
-
-    // On success, login() called router.replace("/admin/blogs")
-    // No further action needed
+    // on success, your AuthContext will redirect you to /admin/blogs
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 to-blue-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 space-y-6">
-        <h2 className="text-3xl font-bold text-center text-indigo-700">
+    // 1) Full‐width & full‐height container with your gradient background
+    <div className="min-h-screen w-full bg-gradient-to-br from-indigo-100 to-blue-100 flex items-center justify-center">
+      {/* 2) Centered card with a max-width */}
+      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
+        <h2 className="text-3xl font-bold text-center text-indigo-700 mb-2">
           Admin Login
         </h2>
-        <p className="text-center text-sm text-gray-500 mb-4">
+        <p className="text-center text-sm text-gray-500 mb-6">
           Sign in to manage blog posts
         </p>
 
@@ -53,8 +52,8 @@ export default function AdminLogin() {
               value={form.email}
               onChange={handleChange}
               placeholder="admin@rentfax.io"
-              className="mt-1 w-full px-4 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               required
+              className="mt-1 w-full px-4 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
@@ -71,19 +70,19 @@ export default function AdminLogin() {
               value={form.password}
               onChange={handleChange}
               placeholder="••••••••"
-              className="mt-1 w-full px-4 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               required
+              className="mt-1 w-full px-4 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           <button
             type="submit"
+            disabled={loading || authLoading}
             className={`w-full py-2 px-4 text-white font-semibold rounded-md transition ${
               loading || authLoading
                 ? "bg-indigo-300 cursor-not-allowed"
                 : "bg-indigo-600 hover:bg-indigo-700"
             }`}
-            disabled={loading || authLoading}
           >
             {loading || authLoading ? "Logging in..." : "Login"}
           </button>
