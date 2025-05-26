@@ -1,7 +1,6 @@
 // pages/blogs/index.jsx
 import React, { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
-import Fuse from "fuse.js"
 import stripHtml from "@/utils/stripHtml"
 import { useAuth } from "@/context/AuthContext"
 
@@ -10,8 +9,6 @@ const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || ""
 
 export default function BlogList() {
   const [blogs, setBlogs] = useState([])
-  const [search, setSearch] = useState("")
-  const [category, setCategory] = useState("all")
   const [page, setPage] = useState(1)
   const postsPerPage = 6
   const { user } = useAuth()
@@ -36,28 +33,17 @@ export default function BlogList() {
       .catch(console.error)
   }, [])
 
-  const fuse = useMemo(
-    () =>
-      new Fuse(blogs, {
-        keys: ["title", "excerpt", "tags", "cleanContent"],
-        threshold: 0.3,
-      }),
-    [blogs]
-  )
-  const bySearch = search ? fuse.search(search).map((r) => r.item) : blogs
-  const byCategory =
-    category === "all"
-      ? bySearch
-      : bySearch.filter(
-          (p) => (p.category || "").toLowerCase() === category.toLowerCase()
-        )
+  // ─── after your useEffect/fetch logic ───────────────────
+  // Make a single array of posts (no filtering/search)
+  const allPosts = blogs
 
-  const totalPages = Math.ceil(byCategory.length / postsPerPage)
+  // Calculate pages
+  const totalPages = Math.ceil(allPosts.length / postsPerPage)
   let hero, sidebarPosts = [], gridPosts = []
   if (page === 1) {
-    hero = byCategory[0]
-    sidebarPosts = byCategory.slice(1, 3)
-    gridPosts = byCategory.slice(3, postsPerPage)
+    hero = allPosts[0]
+    sidebarPosts = allPosts.slice(1, 3)
+    gridPosts = allPosts.slice(3)
   } else {
     const start = (page - 1) * postsPerPage
     gridPosts = byCategory.slice(start, start + postsPerPage)
@@ -102,29 +88,11 @@ export default function BlogList() {
     </div>
   )
 
+  //Padding for Blog Page//
   return (
-    <main className="py-20 px-6 max-w-7xl mx-auto">
-      {/* Search & Category */}
-      <div className="mb-10 flex flex-col md:flex-row gap-4 max-w-2xl mx-auto">
-        <input
-          type="text"
-          placeholder="Search blog posts…"
-          className="flex-1 px-4 py-3 border rounded focus:ring-indigo-500"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-        />
-        <select
-          className="px-4 py-2 border rounded"
-          value={category}
-          onChange={(e) => { setCategory(e.target.value); setPage(1) }}
-        >
-          {uniqueCategories.map((c) => (
-            <option key={c} value={c}>
-              {c.charAt(0).toUpperCase() + c.slice(1)}
-            </option>
-          ))}
-        </select>
-      </div>
+    <main className="py-28 pb-8 px-6 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold mb-8">RentFAX Insights</h1>
+
 
       {/* Hero + Sidebar (page 1) */}
       {page === 1 && hero && (
