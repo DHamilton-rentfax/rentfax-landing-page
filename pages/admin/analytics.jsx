@@ -96,6 +96,7 @@ export default function Analytics() {
         <div className="bg-white shadow rounded-lg p-4">
           <h2 className="text-lg font-semibold mb-2">Views per Post</h2>
           <Bar
+            redraw
             data={{
               labels: labelsByPost,
               datasets: [
@@ -117,6 +118,7 @@ export default function Analytics() {
         <div className="bg-white shadow rounded-lg p-4">
           <h2 className="text-lg font-semibold mb-2">Views by Date (Last 30d)</h2>
           <Bar
+            redraw
             data={{
               labels: dateLabels,
               datasets: [

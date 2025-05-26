@@ -33,7 +33,8 @@ export function AuthProvider({ children }) {
       const { user: loggedInUser } = await api.post("/api/auth/login", { email, password });
       setUser(loggedInUser);
       toast.success("Logged in successfully");
-      router.replace("/admin/blogs");
+      // full-page navigation out of the login context
+      window.location.href = "/admin";
       return true;
     } catch (err) {
       console.error("Login error:", err);
