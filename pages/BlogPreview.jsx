@@ -13,7 +13,7 @@ export default function BlogPreview() {
     if (!slug) return
     ;(async () => {
       try {
-        const res = await fetch(`/api/blogs/${slug}`)
+        const res = await fetch(`/api/blogs/${encodeURIComponent(slug)}`)
         if (!res.ok) throw new Error(`Blog not found (${res.status})`)
         const data = await res.json()
         setBlog(data)
