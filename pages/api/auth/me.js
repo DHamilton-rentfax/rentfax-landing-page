@@ -1,43 +1,45 @@
 // pages/api/auth/me.js
-import jwt from 'jsonwebtoken';
-import { serialize } from 'cookie';
-import dbConnect from '@/lib/mongodb';
-import User from '@/models/User';
+import dbConnect from "@/lib/mongodb";
+import User from "@/models/User";
+import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
-  console.log("🔍 [AUTH ME] API hit");
+  // 1) Only allow GET
+  if (req.method !== "GET") {
+    res.setHeader("Allow", ["GET"]);
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
 
-  // Ensure DB connection
+  // 2) Connect to DB
   await dbConnect();
 
-  // Read token from HttpOnly cookie
+  // 3) Pull token from cookie
   const token = req.cookies?.token;
   if (!token) {
-    console.log("⚠️ No token cookie present");
+    // not logged in
     return res.status(200).json({ user: null });
   }
 
   try {
-    // Verify JWT
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("✅ Token valid for user id:", decoded.id);
+    // 4) Verify & decode
+    const { userId } = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Optionally re-fetch user data (excluding sensitive fields)
-    const userDoc = await User.findById(decoded.id).select('-password');
+    // 5) Lookup user (exclude password)
+    const userDoc = await User.findById(userId).select("-password");
     if (!userDoc) {
-      console.log("❌ User not found in DB");
       return res.status(200).json({ user: null });
     }
 
-    // Return minimal user info
-    const user = {
-      id: userDoc._id,
-      email: userDoc.email,
-      isAdmin: userDoc.isAdmin || false,
-    };
-    return res.status(200).json({ user });
+    // 6) Return minimal profile
+    return res.status(200).json({
+      user: {
+        id: userDoc._id,
+        email: userDoc.email,
+        isAdmin: userDoc.isAdmin || false,
+      },
+    });
   } catch (err) {
-    console.error('❌ Token verification failed:', err.message);
+    console.error("[AUTH ME] JWT verify failed:", err);
     return res.status(200).json({ user: null });
   }
 }
