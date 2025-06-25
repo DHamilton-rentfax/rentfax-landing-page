@@ -12,6 +12,8 @@ import {
   Tooltip,
   Legend,
 } from "chart.js"
+import CommentSection from "@/components/CommentSection"
+import ViewCounter from "@/components/ViewCounter"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -26,11 +28,8 @@ export async function getServerSideProps({ params, req }) {
 
 export default function BlogPost({ post }) {
   const [related, setRelated] = useState([])
-  const [comments, setComments] = useState([])
-  const [commentInput, setCommentInput] = useState("")
 
   useEffect(() => {
-    // Fetch related posts
     fetch("/api/blogs/related", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -39,30 +38,7 @@ export default function BlogPost({ post }) {
       .then((r) => r.json())
       .then(setRelated)
       .catch(console.error)
-
-    // Fetch comments
-    fetch(`/api/comments/${post.slug}`)
-      .then((r) => r.json())
-      .then(setComments)
-      .catch(console.error)
-  }, [post.slug, post.tags])
-
-  const submitComment = async () => {
-    const text = commentInput.trim()
-    if (!text || comments.some((c) => c.text.trim() === text)) return
-    try {
-      const res = await fetch(`/api/comments/${post.slug}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      })
-      const newComment = await res.json()
-      setComments((curr) => [...curr, newComment])
-      setCommentInput("")
-    } catch (err) {
-      console.error("Error submitting comment", err)
-    }
-  }
+  }, [post.tags])
 
   const estimateReadTime = (text) =>
     Math.max(1, Math.round(text.split(" ").length / 200))
@@ -70,10 +46,12 @@ export default function BlogPost({ post }) {
   const weeklyViews = Object.entries(post.viewsByDate || {})
     .slice(-7)
     .map(([date, count]) => ({ date, count }))
+
   const chartData = {
     labels: weeklyViews.map((v) => v.date),
     datasets: [{ data: weeklyViews.map((v) => v.count), borderRadius: 4 }],
   }
+
   const chartOptions = {
     plugins: { legend: { display: false } },
     scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
@@ -93,7 +71,7 @@ export default function BlogPost({ post }) {
         )}
       </Head>
 
-      <section className="container mx-auto px-4 py-12 bg-white antialiased">
+      <section className="container mx-auto px-4 pt-24 pb-12 bg-white antialiased">
         <div className="max-w-3xl mx-auto">
           {post.featuredImage && (
             <img
@@ -137,10 +115,14 @@ export default function BlogPost({ post }) {
             {parse(post.content)}
           </article>
 
-          <div className="mt-8 pt-4 text-sm text-gray-500 border-t">
-            {post.views || 0} views • Last updated{" "}
-            {new Date(post.updatedAt || post.date).toLocaleDateString()}
+          <div className="mt-4 mb-6 text-sm text-gray-500">
+            <ViewCounter postId={post._id} />
+            <span className="ml-2">
+              Last updated {" "}
+              {new Date(post.updatedAt || post.date).toLocaleDateString()}
+            </span>
           </div>
+
           {weeklyViews.length > 0 && (
             <div className="mt-6">
               <h4 className="font-semibold text-gray-800 mb-3">
@@ -150,44 +132,10 @@ export default function BlogPost({ post }) {
             </div>
           )}
 
-          {/* Comments */}
           <div className="mt-16 border-t pt-10">
-            <h3 className="text-xl font-semibold mb-4">Comments</h3>
-            {comments.length > 0 ? (
-              comments.map((c, i) => (
-                <div
-                  key={i}
-                  className="border-b pb-2 text-sm text-gray-800 flex items-start gap-3 mb-4"
-                >
-                  <div className="w-8 h-8 bg-indigo-200 rounded-full flex items-center justify-center text-indigo-700 font-bold">
-                    {c.name?.[0]?.toUpperCase() || "🗣️"}
-                  </div>
-                  <div>
-                    <p>{c.text}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(c.date || Date.now()).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 mb-6">No comments yet.</p>
-            )}
-            <textarea
-              className="w-full border px-4 py-2 rounded mb-2"
-              placeholder="Leave a comment..."
-              value={commentInput}
-              onChange={(e) => setCommentInput(e.target.value)}
-            />
-            <button
-              onClick={submitComment}
-              className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
-            >
-              Post Comment
-            </button>
+            <CommentSection postId={post._id} />
           </div>
 
-          {/* Related Posts */}
           <div className="mt-16 border-t pt-10">
             <h3 className="text-xl font-semibold mb-6">Related Posts</h3>
             {related.length > 0 ? (

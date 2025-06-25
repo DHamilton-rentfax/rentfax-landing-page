@@ -1,6 +1,6 @@
 // pages/api/blogs/[slug].js
 import connectDB from "@/lib/mongodb"
-import Blog from "@/models/Blog"
+import Blog from "@/models/Post"
 import { redis } from "@/lib/redis"
 
 export default async function handler(req, res) {

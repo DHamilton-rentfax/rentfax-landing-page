@@ -14,7 +14,7 @@ export async function uploadToS3(buffer, fileName, fileType) {
   const key = `uploads/${Date.now()}-${fileName}`;
 
   const command = new PutObjectCommand({
-    Bucket: process.env.AWS_BUCKET_NAME,
+    Bucket: process.env.AWS_S3_BUCKET,
     Key: key,
     Body: buffer,
     ContentType: fileType,
@@ -23,7 +23,7 @@ export async function uploadToS3(buffer, fileName, fileType) {
   await s3.send(command);
 
   return {
-    Location: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,
+    Location: `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,
     Key: key,
   };
 }

@@ -1,5 +1,5 @@
 import connectDB from '@/lib/mongodb';
-import Blog from '@/models/Blog';
+import Blog from '@/models/Post';
 import { verifyToken } from '@/lib/auth';
 
 export default async function handler(req, res) {

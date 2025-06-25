@@ -1,4 +1,3 @@
-// pages/editor-register.jsx
 import React, { useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -7,11 +6,29 @@ export default function EditorRegister() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) =>
+  const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Basic client-side validation
+    if (!form.email || !form.password) {
+      toast.error("Both fields are required.");
+      return;
+    }
+
+    if (!form.email.includes("@")) {
+      toast.error("Enter a valid email address.");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -20,23 +37,25 @@ export default function EditorRegister() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+
       const json = await res.json();
       if (!json.success) {
-        toast.error(json.message);
+        toast.error(json.message || "Registration failed.");
       } else {
-        toast.success(json.message);
+        toast.success(json.message || "Registered successfully.");
+        setForm({ email: "", password: "" });
       }
     } catch (err) {
       toast.error("Network error. Please try again.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-8 space-y-6">
-        {/* Title changed per your request */}
         <h2 className="text-3xl font-bold text-center text-indigo-700">
           Register
         </h2>
@@ -44,13 +63,13 @@ export default function EditorRegister() {
           Register to become an editor for RentFAX
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
           <div>
             <label
               htmlFor="email"
               className="block text-sm font-medium text-gray-700"
             >
-              Email
+              Email address
             </label>
             <input
               id="email"
@@ -59,8 +78,9 @@ export default function EditorRegister() {
               value={form.email}
               onChange={handleChange}
               placeholder="you@example.com"
+              autoComplete="email"
               required
-              className="mt-1 w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="mt-1 w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
           </div>
 
@@ -78,8 +98,9 @@ export default function EditorRegister() {
               value={form.password}
               onChange={handleChange}
               placeholder="••••••••"
+              autoComplete="new-password"
               required
-              className="mt-1 w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="mt-1 w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
           </div>
 
