@@ -1,30 +1,36 @@
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import toast from "react-hot-toast";
 
 export default function EditorRegister() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
+  // Update form fields
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Basic client-side validation
-    if (!form.email || !form.password) {
-      toast.error("Both fields are required.");
+    const { email, password } = form;
+
+    if (!email || !password) {
+      toast.error("Both email and password are required.");
       return;
     }
 
-    if (!form.email.includes("@")) {
-      toast.error("Enter a valid email address.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email address.");
       return;
     }
 
-    if (form.password.length < 6) {
+    if (password.length < 6) {
       toast.error("Password must be at least 6 characters.");
       return;
     }
@@ -39,11 +45,12 @@ export default function EditorRegister() {
       });
 
       const json = await res.json();
+
       if (!json.success) {
         toast.error(json.message || "Registration failed.");
       } else {
-        toast.success(json.message || "Registered successfully.");
-        setForm({ email: "", password: "" });
+        toast.success("Registered! Redirecting...");
+        router.push("/editor/pending-approval");
       }
     } catch (err) {
       toast.error("Network error. Please try again.");
@@ -80,6 +87,7 @@ export default function EditorRegister() {
               placeholder="you@example.com"
               autoComplete="email"
               required
+              aria-required="true"
               className="mt-1 w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
           </div>
@@ -100,6 +108,7 @@ export default function EditorRegister() {
               placeholder="••••••••"
               autoComplete="new-password"
               required
+              aria-required="true"
               className="mt-1 w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
           </div>

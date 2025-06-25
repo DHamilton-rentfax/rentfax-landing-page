@@ -3,7 +3,7 @@ import Comment from '@/models/Comment';
 import formData from 'form-data';
 import Mailgun from 'mailgun.js';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]'; // adjust path if different
+import { authOptions } from '../auth/[...nextauth]';
 
 const mailgun = new Mailgun(formData);
 const mg = mailgun.client({
@@ -12,61 +12,71 @@ const mg = mailgun.client({
   url: 'https://api.mailgun.net',
 });
 
+const DOMAIN = process.env.MAILGUN_DOMAIN || 'mail.rentfax.io';
+const FROM = process.env.MAILGUN_FROM || `no-reply@${DOMAIN}`;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'info@rentfax.io';
+
 export default async function handler(req, res) {
   await connectDB();
 
   if (req.method === 'POST') {
     const session = await getServerSession(req, res, authOptions);
+    const isAuthed = session && session.user?.email;
 
-    if (!session || !session.user?.email) {
-      return res.status(401).json({ error: 'Unauthorized. Please sign in.' });
+    const { blogSlug, content, name, email, avatar } = req.body;
+
+    if (!blogSlug || !content || (!name && !isAuthed)) {
+      return res.status(400).json({ error: 'Missing required fields.' });
     }
 
-    const { postId, text, avatar } = req.body;
-    const authorEmail = session.user.email;
-
-    if (!postId || !text) {
-      return res.status(400).json({ error: 'Missing postId or comment text' });
-    }
+    const commenterName = isAuthed ? session.user.name || "RentFAX User" : name;
+    const commenterEmail = isAuthed ? session.user.email : email;
 
     try {
       const newComment = await Comment.create({
-        post: postId,
-        authorEmail,
-        text,
-        avatar,
+        blogSlug,
+        content,
+        name: commenterName,
+        email: commenterEmail,
+        avatar: avatar || '',
+        approved: false, // You can build admin approval toggle from this
       });
 
-      await mg.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: process.env.MAILGUN_FROM,
-        to: process.env.ADMIN_EMAIL,
-        subject: `💬 New comment on RentFAX`,
-        text: `New comment posted:\n\n${text}\n\nFrom: ${authorEmail}\nPost ID: ${postId}`,
+      await mg.messages.create(DOMAIN, {
+        from: FROM,
+        to: ADMIN_EMAIL,
+        subject: `💬 New Comment on ${blogSlug}`,
+        html: `
+          <h3>New comment awaiting approval</h3>
+          <p><strong>${commenterName}</strong> (${commenterEmail}) said:</p>
+          <blockquote>${content}</blockquote>
+          <p><strong>Slug:</strong> ${blogSlug}</p>
+        `,
       });
 
-      return res.status(201).json(newComment);
-    } catch (error) {
-      console.error('❌ Failed to post comment or send email:', error);
-      return res.status(500).json({ error: 'Failed to post comment or send notification' });
+      return res.status(201).json({ success: true, message: 'Comment submitted for approval.' });
+    } catch (err) {
+      console.error('❌ Error creating comment or sending email:', err);
+      return res.status(500).json({ error: 'Server error creating comment.' });
     }
   }
 
   if (req.method === 'GET') {
-    const { postId } = req.query;
+    const { blogSlug } = req.query;
 
-    if (!postId) {
-      return res.status(400).json({ error: 'Missing postId in query' });
+    if (!blogSlug) {
+      return res.status(400).json({ error: 'Missing blogSlug' });
     }
 
     try {
-      const comments = await Comment.find({ post: postId }).sort({ createdAt: -1 });
+      const comments = await Comment.find({ blogSlug, approved: true }).sort({ createdAt: -1 });
       return res.status(200).json(comments);
-    } catch (error) {
-      console.error('❌ Failed to fetch comments:', error);
-      return res.status(500).json({ error: 'Failed to fetch comments' });
+    } catch (err) {
+      console.error('❌ Failed to fetch comments:', err);
+      return res.status(500).json({ error: 'Server error fetching comments.' });
     }
   }
 
   res.setHeader('Allow', ['GET', 'POST']);
-  return res.status(405).end(`Method ${req.method} Not Allowed`);
+  res.status(405).end(`Method ${req.method} Not Allowed`);
 }
