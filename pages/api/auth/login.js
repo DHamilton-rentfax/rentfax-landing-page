@@ -18,11 +18,11 @@ export default async function handler(req, res) {
 
   try {
     const user = await User.findOne({ email: cleanedEmail });
-    if (!user) {
+    if (!user || !user.passwordHash) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    const isMatch = await bcrypt.compare(cleanedPassword, user.password);
+    const isMatch = await bcrypt.compare(cleanedPassword, user.passwordHash); // ✅ FIXED HERE
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge: 60 * 60 * 24 * 7, // 7 days
       })
     );
 
