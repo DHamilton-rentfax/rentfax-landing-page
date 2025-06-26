@@ -30,11 +30,13 @@ export default function SearchResults() {
   }, [q, page]);
 
   const highlightText = (text, indices) => {
-    if (!indices || indices.length === 0) return text;
-    let parts = [];
+    if (!indices?.length) return text;
+
+    const parts = [];
     let last = 0;
+
     indices.forEach(([start, end], idx) => {
-      parts.push(text.slice(last, start));
+      if (start > last) parts.push(text.slice(last, start));
       parts.push(
         <mark key={idx} className="bg-yellow-200">
           {text.slice(start, end + 1)}
@@ -42,7 +44,8 @@ export default function SearchResults() {
       );
       last = end + 1;
     });
-    parts.push(text.slice(last));
+
+    if (last < text.length) parts.push(text.slice(last));
     return parts;
   };
 

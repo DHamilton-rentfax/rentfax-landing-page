@@ -1,9 +1,8 @@
-// pages/blogs/[slug].jsx
-import React, { useEffect, useState } from "react"
-import Head from "next/head"
-import Link from "next/link"
-import parse from "html-react-parser"
-import { Bar } from "react-chartjs-2"
+import React, { useEffect, useState } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import parse from "html-react-parser";
+import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   BarElement,
@@ -11,23 +10,31 @@ import {
   LinearScale,
   Tooltip,
   Legend,
-} from "chart.js"
-import CommentSection from "@/components/CommentSection"
-import ViewCounter from "@/components/ViewCounter"
+} from "chart.js";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+import CommentSection from "@/components/CommentSection";
+import ViewCounter from "@/components/ViewCounter";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 export async function getServerSideProps({ params, req }) {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL || `http://${req.headers.host}`
-  const res = await fetch(`${baseUrl}/api/blogs/${params.slug}`)
-  if (!res.ok) return { notFound: true }
-  const post = await res.json()
-  return { props: { post } }
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://${req.headers.host}`;
+  const res = await fetch(`${baseUrl}/api/blogs/${params.slug}`);
+  if (!res.ok) return { notFound: true };
+  const post = await res.json();
+
+  // Fetch all slugs to determine previous/next
+  const allRes = await fetch(`${baseUrl}/api/blogs`);
+  const allPosts = await allRes.json();
+  const index = allPosts.findIndex(p => p.slug === params.slug);
+  const prevPost = allPosts[index - 1] || null;
+  const nextPost = allPosts[index + 1] || null;
+
+  return { props: { post, prevPost, nextPost } };
 }
 
-export default function BlogPost({ post }) {
-  const [related, setRelated] = useState([])
+export default function BlogPost({ post, prevPost, nextPost }) {
+  const [related, setRelated] = useState([]);
 
   useEffect(() => {
     fetch("/api/blogs/related", {
@@ -37,25 +44,25 @@ export default function BlogPost({ post }) {
     })
       .then((r) => r.json())
       .then(setRelated)
-      .catch(console.error)
-  }, [post.tags])
+      .catch(console.error);
+  }, [post.tags]);
 
   const estimateReadTime = (text) =>
-    Math.max(1, Math.round(text.split(" ").length / 200))
+    Math.max(1, Math.round(text.split(" ").length / 200));
 
   const weeklyViews = Object.entries(post.viewsByDate || {})
     .slice(-7)
-    .map(([date, count]) => ({ date, count }))
+    .map(([date, count]) => ({ date, count }));
 
   const chartData = {
     labels: weeklyViews.map((v) => v.date),
     datasets: [{ data: weeklyViews.map((v) => v.count), borderRadius: 4 }],
-  }
+  };
 
   const chartOptions = {
     plugins: { legend: { display: false } },
     scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-  }
+  };
 
   return (
     <>
@@ -71,8 +78,8 @@ export default function BlogPost({ post }) {
         )}
       </Head>
 
-      <section className="container mx-auto px-4 pt-24 pb-12 bg-white antialiased">
-        <div className="max-w-3xl mx-auto">
+      <section className="w-full pt-24 pb-12 bg-white antialiased">
+        <div className="max-w-5xl mx-auto px-4">
           {post.featuredImage && (
             <img
               src={post.featuredImage}
@@ -82,12 +89,8 @@ export default function BlogPost({ post }) {
           )}
 
           <h1 className="text-4xl font-bold mb-2">{post.title}</h1>
-          {post.subtitle && (
-            <h2 className="text-xl text-gray-600 mb-4">{post.subtitle}</h2>
-          )}
-          {post.excerpt && (
-            <p className="text-gray-600 mb-6">{post.excerpt}</p>
-          )}
+          {post.subtitle && <h2 className="text-xl text-gray-600 mb-4">{post.subtitle}</h2>}
+          {post.excerpt && <p className="text-gray-600 mb-6">{post.excerpt}</p>}
 
           <div className="flex items-center gap-3 text-sm text-gray-500 mb-10">
             <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-indigo-700">
@@ -118,7 +121,7 @@ export default function BlogPost({ post }) {
           <div className="mt-4 mb-6 text-sm text-gray-500">
             <ViewCounter postId={post._id} />
             <span className="ml-2">
-              Last updated {" "}
+              Last updated{" "}
               {new Date(post.updatedAt || post.date).toLocaleDateString()}
             </span>
           </div>
@@ -155,8 +158,23 @@ export default function BlogPost({ post }) {
               <p className="text-gray-500">No related posts found.</p>
             )}
           </div>
+
+          <div className="mt-20 grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-10">
+            {prevPost && (
+              <Link href={`/blogs/${prevPost.slug}`} className="block p-4 border rounded hover:shadow-md transition">
+                <h4 className="font-semibold text-lg mb-2">← Previous Post</h4>
+                <p className="text-sm text-gray-600">{prevPost.title}</p>
+              </Link>
+            )}
+            {nextPost && (
+              <Link href={`/blogs/${nextPost.slug}`} className="block p-4 border rounded hover:shadow-md transition">
+                <h4 className="font-semibold text-lg mb-2">Next Post →</h4>
+                <p className="text-sm text-gray-600">{nextPost.title}</p>
+              </Link>
+            )}
+          </div>
         </div>
       </section>
     </>
-  )
+  );
 }
