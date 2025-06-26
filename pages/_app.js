@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "../context/AuthContext";
+import { SpeedInsights } from "@vercel/speed-insights/next"; // ✅ NEW
 
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
@@ -45,11 +46,14 @@ export default function App({ Component, pageProps }) {
               <AdminSidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
             )}
 
-            {/* Main Content (Full Width) */}
+            {/* Main Content */}
             <main className="flex-1 w-full px-0">
               <Component {...pageProps} />
             </main>
           </div>
+
+          {/* ✅ Vercel Speed Insights */}
+          <SpeedInsights />
         </div>
       </AuthProvider>
     </HelmetProvider>
