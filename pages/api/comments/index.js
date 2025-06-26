@@ -1,5 +1,5 @@
 import connectDB from '@/lib/mongodb';
-import Comment from '@/models/Comments'; // ✅ Correct model reference
+import Comment from '@/models/Comment'; // ✅ Correct model reference
 import Mailgun from 'mailgun.js';
 import formData from 'form-data';
 import { getServerSession } from 'next-auth/next';
