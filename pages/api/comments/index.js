@@ -1,11 +1,10 @@
 import connectDB from '@/lib/mongodb';
-import Comment from '@/models/Comment'; // ✅ Correct model reference
+import Comment from '@/models/Comment';
 import Mailgun from 'mailgun.js';
 import formData from 'form-data';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]'; // ✅ Correct path
+import { authOptions } from '../auth/[...nextauth]';
 
-// 🔧 Mailgun Setup
 const mailgun = new Mailgun(formData);
 const mg = mailgun.client({
   username: 'api',
@@ -26,39 +25,54 @@ export default async function handler(req, res) {
 
     const { blogSlug, content, name, email, avatar } = req.body;
 
+    // Validate
     if (!blogSlug || !content || (!name && !isAuthed)) {
-      return res.status(400).json({ error: 'Missing required fields.' });
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: blogSlug, content, and name/email.',
+      });
     }
 
-    const commenterName = isAuthed ? session.user.name || 'RentFAX User' : name;
-    const commenterEmail = isAuthed ? session.user.email : email;
+    const commenterName = isAuthed ? session.user.name || 'RentFAX User' : name.trim();
+    const commenterEmail = isAuthed ? session.user.email : email?.trim();
+    const avatarUrl = avatar || '';
 
     try {
+      // Create comment in database
       const newComment = await Comment.create({
         blogSlug,
-        content,
+        content: content.trim(),
         name: commenterName,
         email: commenterEmail,
-        avatar: avatar || '',
+        avatar: avatarUrl,
         approved: false,
       });
 
-      await mg.messages.create(DOMAIN, {
-        from: FROM,
-        to: ADMIN_EMAIL,
-        subject: `💬 New Comment on ${blogSlug}`,
-        html: `
-          <h3>New comment awaiting approval</h3>
-          <p><strong>${commenterName}</strong> (${commenterEmail}) said:</p>
-          <blockquote>${content}</blockquote>
-          <p><strong>Slug:</strong> ${blogSlug}</p>
-        `,
-      });
+      // Send notification to admin
+      try {
+        await mg.messages.create(DOMAIN, {
+          from: FROM,
+          to: ADMIN_EMAIL,
+          subject: `💬 New Comment on ${blogSlug}`,
+          html: `
+            <h3>New comment awaiting approval</h3>
+            <p><strong>${commenterName}</strong> (${commenterEmail}) said:</p>
+            <blockquote style="margin: 10px 0; padding: 10px; background: #f4f4f4;">${content}</blockquote>
+            <p><strong>Slug:</strong> ${blogSlug}</p>
+          `,
+        });
+      } catch (mailError) {
+        console.error('⚠️ Mailgun error (comment still saved):', mailError);
+      }
 
-      return res.status(201).json({ success: true, message: 'Comment submitted for approval.' });
+      return res.status(201).json({
+        success: true,
+        message: 'Comment submitted for approval.',
+        commentId: newComment._id,
+      });
     } catch (err) {
-      console.error('❌ Failed to create comment or send email:', err);
-      return res.status(500).json({ error: 'Server error. Please try again later.' });
+      console.error('❌ Comment creation error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to save comment.' });
     }
   }
 
@@ -66,18 +80,22 @@ export default async function handler(req, res) {
     const { blogSlug } = req.query;
 
     if (!blogSlug) {
-      return res.status(400).json({ error: 'Missing blogSlug.' });
+      return res.status(400).json({ success: false, error: 'Missing blogSlug query param.' });
     }
 
     try {
       const comments = await Comment.find({ blogSlug, approved: true }).sort({ createdAt: -1 });
-      return res.status(200).json(comments);
+      return res.status(200).json({ success: true, comments });
     } catch (err) {
       console.error('❌ Failed to fetch comments:', err);
-      return res.status(500).json({ error: 'Server error fetching comments.' });
+      return res.status(500).json({ success: false, error: 'Could not fetch comments.' });
     }
   }
 
   res.setHeader('Allow', ['GET', 'POST']);
-  return res.status(405).end(`Method ${req.method} Not Allowed`);
+  return res.status(405).json({
+    success: false,
+    error: `Method ${req.method} Not Allowed`,
+    allowed: ['GET', 'POST'],
+  });
 }
