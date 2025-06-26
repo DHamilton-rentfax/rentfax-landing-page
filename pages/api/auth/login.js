@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    const isMatch = await bcrypt.compare(cleanedPassword, user.passwordHash);
+    const isMatch = await bcrypt.compare(cleanedPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        maxAge: 60 * 60 * 24 * 7,
       })
     );
 
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
         email: user.email,
         role,
       },
-      token, // optional: also send token in body
+      token,
     });
   } catch (err) {
     console.error("❌ Login error:", err);
