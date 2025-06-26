@@ -17,22 +17,33 @@ export default async function handler(req, res) {
   const cleanedEmail = email.toLowerCase().trim();
   const cleanedPassword = password.trim();
 
+  console.log("📩 Login request received:", { email: cleanedEmail });
+
   if (!cleanedEmail || !cleanedPassword) {
+    console.warn("⚠️ Missing email or password in request.");
     return res.status(400).json({ error: "Email and password are required." });
   }
 
   try {
     const user = await User.findOne({ email: cleanedEmail });
+
+    console.log("👤 User found:", user ? { email: user.email, status: user.status } : "No user found");
+
     if (!user || !user.passwordHash) {
+      console.warn("❌ Invalid email or missing passwordHash.");
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
     const passwordMatches = await bcrypt.compare(cleanedPassword, user.passwordHash);
+    console.log("🔐 Password match:", passwordMatches);
+
     if (!passwordMatches) {
+      console.warn("❌ Password mismatch.");
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
     if (user.status === "pending") {
+      console.warn("⏳ Account pending approval.");
       return res.status(403).json({ error: "Account is pending approval." });
     }
 
@@ -57,6 +68,8 @@ export default async function handler(req, res) {
         maxAge: 60 * 60 * 24 * 7, // 7 days
       })
     );
+
+    console.log("✅ Login successful. Sending response...");
 
     return res.status(200).json({
       success: true,

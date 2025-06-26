@@ -15,6 +15,8 @@ const MAILGUN_FROM = process.env.MAILGUN_FROM || "no-reply@mail.rentfax.io";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "info@rentfax.io";
 const NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://rentfax.io";
 
+console.log("✅ New user created:", newUser._id);
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method Not Allowed" });
