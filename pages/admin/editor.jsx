@@ -1,4 +1,3 @@
-// pages/admin/editor.jsx
 import React, { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/router"
 import toast from "react-hot-toast"
@@ -6,7 +5,6 @@ import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import dynamic from "next/dynamic"
 
-// ✅ SSR-safe dynamic import of ReactQuill
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false })
 import "react-quill/dist/quill.snow.css"
 
@@ -22,8 +20,8 @@ export default function EditorPage() {
     slug: "",
     excerpt: "",
     content: "",
-    author: "Dominique",
-    date: new Date().toISOString().split("T")[0],
+    author: "",
+    createdAt: new Date().toISOString(),
     category: "",
     tags: "",
     image: "",
@@ -32,14 +30,17 @@ export default function EditorPage() {
     metaDescription: "",
     published: true,
   })
+
   const [preview, setPreview] = useState(null)
   const [loadingImage, setLoadingImage] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Auth check
   useEffect(() => {
     if (user === null) router.replace("/admin/login")
   }, [user, router])
 
+  // Generate slug from title
   useEffect(() => {
     if (form.title && !isEditing) {
       const generated = form.title
@@ -50,6 +51,7 @@ export default function EditorPage() {
     }
   }, [form.title, isEditing])
 
+  // Load post if editing
   useEffect(() => {
     if (!isEditing) return
     api
@@ -60,8 +62,8 @@ export default function EditorPage() {
           slug: data.slug || "",
           excerpt: data.excerpt || "",
           content: data.content || "",
-          author: data.author || "Dominique",
-          date: data.date ? data.date.split("T")[0] : form.date,
+          author: data.author || user?.email || "Dominique",
+          createdAt: data.createdAt || new Date().toISOString(),
           category: data.category || "",
           tags: (data.tags || []).join(", "),
           image: data.featuredImage || "",
@@ -73,7 +75,19 @@ export default function EditorPage() {
         setPreview(data.featuredImage || null)
       })
       .catch(() => toast.error("Error loading blog"))
-  }, [isEditing, edit])
+  }, [isEditing, edit, user])
+
+  // Prevent accidental close
+  useEffect(() => {
+    const warnOnClose = (e) => {
+      if (!saving && form.content.length > 10) {
+        e.preventDefault()
+        e.returnValue = ""
+      }
+    }
+    window.addEventListener("beforeunload", warnOnClose)
+    return () => window.removeEventListener("beforeunload", warnOnClose)
+  }, [form.content, saving])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -85,7 +99,7 @@ export default function EditorPage() {
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file) return toast.error("No image selected")
     setPreview(URL.createObjectURL(file))
     setLoadingImage(true)
 
@@ -116,8 +130,8 @@ export default function EditorPage() {
         slug: form.slug,
         excerpt: form.excerpt,
         content: form.content,
-        author: form.author,
-        date: form.date,
+        author: user?.email || "Dominique",
+        createdAt: form.createdAt,
         category: form.category,
         tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
         featuredImage: form.image,
@@ -133,8 +147,10 @@ export default function EditorPage() {
         await api.post("/api/blogs", payload)
         toast.success("Post created")
       }
+
       router.replace("/admin/blogs")
-    } catch {
+    } catch (err) {
+      console.error(err)
       toast.error("Save failed")
     } finally {
       setSaving(false)
@@ -151,7 +167,7 @@ export default function EditorPage() {
         <input name="title" value={form.title} onChange={handleChange} placeholder="Title" className="border px-3 py-2 rounded" />
         <input name="slug" value={form.slug} onChange={handleChange} placeholder="Slug" className="border px-3 py-2 rounded" />
         <input name="excerpt" value={form.excerpt} onChange={handleChange} placeholder="Excerpt" className="border px-3 py-2 rounded" />
-        <input type="date" name="date" value={form.date} onChange={handleChange} className="border px-3 py-2 rounded" />
+        <input type="date" name="createdAt" value={form.createdAt.split("T")[0]} onChange={handleChange} className="border px-3 py-2 rounded" />
         <input name="category" value={form.category} onChange={handleChange} placeholder="Category" className="border px-3 py-2 rounded" />
         <input name="tags" value={form.tags} onChange={handleChange} placeholder="Tags (comma separated)" className="border px-3 py-2 rounded" />
         <input name="metaTitle" value={form.metaTitle} onChange={handleChange} placeholder="Meta Title" className="border px-3 py-2 rounded md:col-span-2" />

@@ -1,4 +1,3 @@
-// pages/api/auth/register.js
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
@@ -21,30 +20,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
+  await dbConnect();
+
+  const { email = "", password = "" } = req.body;
+
+  const cleanedEmail = email.toLowerCase().trim();
+  const cleanedPassword = password.trim();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail) || cleanedPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid email or password too short.",
+    });
+  }
+
   try {
-    await dbConnect();
-
-    const { email, password } = req.body;
-    console.log("📩 Incoming register payload:", req.body);
-
-    // Basic validation
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required.",
-      });
-    }
-
-    const cleanedEmail = email.toLowerCase().trim();
-    const cleanedPassword = password.trim();
-
-    if (!cleanedEmail.includes("@") || cleanedPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email or password too short.",
-      });
-    }
-
     const existingUser = await User.findOne({ email: cleanedEmail });
     if (existingUser) {
       return res.status(400).json({
@@ -53,16 +43,16 @@ export default async function handler(req, res) {
       });
     }
 
-    // Create new user
-    const hashed = await bcrypt.hash(cleanedPassword, 12);
+    const hashedPassword = await bcrypt.hash(cleanedPassword, 12);
+
     const newUser = await User.create({
       email: cleanedEmail,
-      password: hashed,
+      passwordHash: hashedPassword,
       roles: ["editor"],
       status: "pending",
     });
 
-    // Notify admin
+    // Fire admin notification via Mailgun
     try {
       await mg.messages.create(MAILGUN_DOMAIN, {
         from: MAILGUN_FROM,
@@ -72,13 +62,13 @@ export default async function handler(req, res) {
           <p>A new editor has registered on RentFAX:</p>
           <ul>
             <li><strong>Email:</strong> ${newUser.email}</li>
-            <li><strong>Time:</strong> ${newUser.createdAt.toLocaleString()}</li>
+            <li><strong>Time:</strong> ${new Date().toLocaleString()}</li>
           </ul>
           <p><a href="${NEXTAUTH_URL}/admin/approvals">Review Pending Editor</a></p>
         `,
       });
     } catch (mailError) {
-      console.error("❌ Mailgun error (non-blocking):", mailError.message || mailError);
+      console.warn("📭 Mailgun error (non-blocking):", mailError.message || mailError);
     }
 
     return res.status(201).json({
@@ -86,7 +76,7 @@ export default async function handler(req, res) {
       message: "Registration submitted. Awaiting admin approval.",
     });
   } catch (err) {
-    console.error("❌ Registration server error:", err.message || err);
+    console.error("❌ Registration error:", err.message || err);
     return res.status(500).json({
       success: false,
       message: "Server error. Please try again later.",

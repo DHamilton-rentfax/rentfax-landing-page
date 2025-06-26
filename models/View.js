@@ -1,13 +1,13 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const viewSchema = new mongoose.Schema({
   post: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Post",
+    ref: 'Post',
     required: true,
+    index: true,
   },
-  ip: String,
-  viewedAt: { type: Date, default: Date.now }
+  ip: { type: String, required: true },
 }, { timestamps: true });
 
-export default mongoose.models.View || mongoose.model("View", viewSchema);
+export default mongoose.models.View || mongoose.model('View', viewSchema);

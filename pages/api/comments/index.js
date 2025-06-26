@@ -1,10 +1,11 @@
 import connectDB from '@/lib/mongodb';
-import Comment from '@/models/Comment';
-import formData from 'form-data';
+import Comment from '@/models/Comments'; // ✅ Correct model reference
 import Mailgun from 'mailgun.js';
+import formData from 'form-data';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { authOptions } from '../auth/[...nextauth]'; // ✅ Correct path
 
+// 🔧 Mailgun Setup
 const mailgun = new Mailgun(formData);
 const mg = mailgun.client({
   username: 'api',
@@ -21,7 +22,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const session = await getServerSession(req, res, authOptions);
-    const isAuthed = session && session.user?.email;
+    const isAuthed = !!session?.user?.email;
 
     const { blogSlug, content, name, email, avatar } = req.body;
 
@@ -29,7 +30,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields.' });
     }
 
-    const commenterName = isAuthed ? session.user.name || "RentFAX User" : name;
+    const commenterName = isAuthed ? session.user.name || 'RentFAX User' : name;
     const commenterEmail = isAuthed ? session.user.email : email;
 
     try {
@@ -39,7 +40,7 @@ export default async function handler(req, res) {
         name: commenterName,
         email: commenterEmail,
         avatar: avatar || '',
-        approved: false, // You can build admin approval toggle from this
+        approved: false,
       });
 
       await mg.messages.create(DOMAIN, {
@@ -56,8 +57,8 @@ export default async function handler(req, res) {
 
       return res.status(201).json({ success: true, message: 'Comment submitted for approval.' });
     } catch (err) {
-      console.error('❌ Error creating comment or sending email:', err);
-      return res.status(500).json({ error: 'Server error creating comment.' });
+      console.error('❌ Failed to create comment or send email:', err);
+      return res.status(500).json({ error: 'Server error. Please try again later.' });
     }
   }
 
@@ -65,7 +66,7 @@ export default async function handler(req, res) {
     const { blogSlug } = req.query;
 
     if (!blogSlug) {
-      return res.status(400).json({ error: 'Missing blogSlug' });
+      return res.status(400).json({ error: 'Missing blogSlug.' });
     }
 
     try {
@@ -78,5 +79,5 @@ export default async function handler(req, res) {
   }
 
   res.setHeader('Allow', ['GET', 'POST']);
-  res.status(405).end(`Method ${req.method} Not Allowed`);
+  return res.status(405).end(`Method ${req.method} Not Allowed`);
 }
