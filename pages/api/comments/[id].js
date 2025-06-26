@@ -1,8 +1,8 @@
 // pages/api/comments/[id].js
 import connectDB from '@/lib/mongodb';
-import Comment from '@/models/Comment';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
+import Comment from '@/models/Comment';
 
 export default async function handler(req, res) {
   await connectDB();

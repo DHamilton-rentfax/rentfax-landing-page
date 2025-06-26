@@ -1,16 +1,28 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const CommentSchema = new mongoose.Schema(
+const commentSchema = new mongoose.Schema(
   {
-    blogSlug: { type: String, required: true },
-    content: { type: String, required: true },
-    name: { type: String, required: true },
-    email: { type: String, required: true },
-    avatar: { type: String },
-    approved: { type: Boolean, default: false },
+    postId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Post",
+      required: true,
+    },
+    authorEmail: {
+      type: String,
+      required: true,
+    },
+    text: {
+      type: String,
+      required: true,
+    },
+    approved: {
+      type: Boolean,
+      default: false,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// Prevent recompilation in dev
-export default mongoose.models.Comment || mongoose.model('Comment', CommentSchema);
+export default mongoose.models.Comment || mongoose.model("Comment", commentSchema);
