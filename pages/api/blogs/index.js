@@ -10,9 +10,14 @@ export default async function handler(req, res) {
     try {
       const showDeleted = req.query.deleted === "true";
 
-      const blogs = await Blog.find({ deleted: showDeleted })
-        .sort({ date: -1 })
-        .lean();
+      const query = showDeleted
+        ? { deleted: true }
+        : {
+            $or: [{ deleted: false }, { deleted: { $exists: false } }],
+            status: "published",
+          };
+
+      const blogs = await Blog.find(query).sort({ date: -1 }).lean();
 
       const adapted = blogs.map((b) => ({
         slug: b.slug,
@@ -23,7 +28,7 @@ export default async function handler(req, res) {
         category: b.category || "",
         date: b.date?.toISOString() || null,
         status: b.deleted ? "Trash" : b.status === "published" ? "Published" : "Draft",
-        deleted: b.deleted,
+        deleted: !!b.deleted,
       }));
 
       return res.status(200).json(adapted);
@@ -36,23 +41,43 @@ export default async function handler(req, res) {
   // ─── POST New Blog ──────────────────────────────────────────────
   if (req.method === "POST") {
     try {
-      console.log("[POST /api/blogs] Incoming body:", req.body);
+      const {
+        title,
+        slug,
+        content,
+        excerpt,
+        featuredImage = "",
+        subtitle = "",
+        tags = [],
+        metaTitle,
+        metaDescription,
+        keywords = "",
+        author = "Admin",
+        category = "uncategorized",
+        status = "draft",
+        date = new Date(),
+      } = req.body;
+
+      if (!title || !slug || !content) {
+        return res.status(400).json({ error: "Missing required fields: title, slug, or content." });
+      }
 
       const newBlog = new Blog({
-        title: req.body.title,
-        subtitle: req.body.subtitle || "",
-        slug: req.body.slug,
-        content: req.body.content,
-        excerpt: req.body.excerpt,
-        featuredImage: req.body.featuredImage || "",
-        tags: req.body.tags || [],
-        metaTitle: req.body.metaTitle || req.body.title,
-        metaDescription: req.body.metaDescription || req.body.excerpt,
-        keywords: req.body.keywords || "",
-        author: req.body.author || "Admin",
-        category: req.body.category || "uncategorized",
-        status: req.body.status || "draft",
-        date: req.body.date || new Date(),
+        title,
+        subtitle,
+        slug,
+        content,
+        excerpt,
+        featuredImage,
+        tags,
+        metaTitle: metaTitle || title,
+        metaDescription: metaDescription || excerpt,
+        keywords,
+        author,
+        category,
+        status,
+        date,
+        deleted: false,
       });
 
       await newBlog.save();
@@ -65,8 +90,8 @@ export default async function handler(req, res) {
         author: newBlog.author,
         category: newBlog.category,
         date: newBlog.date?.toISOString() || null,
-        status: newBlog.deleted ? "Trash" : newBlog.status === "published" ? "Published" : "Draft",
-        deleted: newBlog.deleted,
+        status: newBlog.status === "published" ? "Published" : "Draft",
+        deleted: false,
       });
     } catch (err) {
       console.error("[POST /api/blogs] Error:", err);
