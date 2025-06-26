@@ -1,3 +1,4 @@
+// pages/api/auth/login.js
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
@@ -16,14 +17,18 @@ export default async function handler(req, res) {
   const cleanedEmail = email.toLowerCase().trim();
   const cleanedPassword = password.trim();
 
+  if (!cleanedEmail || !cleanedPassword) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
   try {
     const user = await User.findOne({ email: cleanedEmail });
     if (!user || !user.passwordHash) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    const isMatch = await bcrypt.compare(cleanedPassword, user.passwordHash); // ✅ FIXED HERE
-    if (!isMatch) {
+    const passwordMatches = await bcrypt.compare(cleanedPassword, user.passwordHash);
+    if (!passwordMatches) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
@@ -31,10 +36,13 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Account is pending approval." });
     }
 
-    const role = user.roles?.[0] || "editor";
-
     const token = jwt.sign(
-      { id: user._id, email: user.email, role },
+      {
+        id: user._id,
+        email: user.email,
+        roles: user.roles,
+        status: user.status,
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -51,12 +59,15 @@ export default async function handler(req, res) {
     );
 
     return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
       user: {
         id: user._id,
         email: user.email,
-        role,
+        roles: user.roles,
+        status: user.status,
       },
-      token,
     });
   } catch (err) {
     console.error("❌ Login error:", err);
