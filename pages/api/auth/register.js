@@ -17,21 +17,16 @@ const NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://rentfax.io";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    res.setHeader("Allow", ["POST"]);
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
   await dbConnect();
 
   const { email = "", password = "" } = req.body;
-
   const cleanedEmail = email.toLowerCase().trim();
   const cleanedPassword = password.trim();
 
-  if (
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail) ||
-    cleanedPassword.length < 6
-  ) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail) || cleanedPassword.length < 6) {
     return res.status(400).json({
       success: false,
       message: "Invalid email or password too short.",
@@ -40,7 +35,6 @@ export default async function handler(req, res) {
 
   try {
     const existingUser = await User.findOne({ email: cleanedEmail });
-
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -57,11 +51,11 @@ export default async function handler(req, res) {
       status: "pending",
     });
 
-    console.log("✅ New user created:", newUser._id);
+    console.log("✅ New user created:", newUser.email);
 
-    // Notify Admin
-    try {
-      await mg.messages.create(MAILGUN_DOMAIN, {
+    // Fire admin notification via Mailgun (non-blocking)
+    mg.messages
+      .create(MAILGUN_DOMAIN, {
         from: MAILGUN_FROM,
         to: ADMIN_EMAIL,
         subject: "🆕 New Editor Signup – Approval Needed",
@@ -73,10 +67,11 @@ export default async function handler(req, res) {
           </ul>
           <p><a href="${NEXTAUTH_URL}/admin/approvals">Review Pending Editor</a></p>
         `,
-      });
-    } catch (mailError) {
-      console.warn("📭 Mailgun error (non-blocking):", mailError?.message || mailError);
-    }
+      })
+      .then(() => console.log("📧 Admin notified via Mailgun"))
+      .catch((mailError) =>
+        console.warn("📭 Mailgun error (non-blocking):", mailError.message || mailError)
+      );
 
     return res.status(201).json({
       success: true,

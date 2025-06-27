@@ -18,11 +18,9 @@ export default async function handler(req, res) {
             content: { $exists: true, $ne: "" },
           };
 
-      const blogs = await Blog.find(query).sort({ date: -1 }).lean();
+      const blogs = await Blog.find(query).sort({ date: -1 });
 
-      console.log("✅ Blogs fetched:", blogs.length); // DEBUG COUNT
-
-      const adapted = blogs.map((b) => ({
+      const posts = blogs.map((b) => ({
         slug: b.slug,
         title: b.title,
         excerpt: b.excerpt,
@@ -34,10 +32,10 @@ export default async function handler(req, res) {
         deleted: !!b.deleted,
       }));
 
-      return res.status(200).json(adapted);
+      return res.status(200).json({ posts });
     } catch (err) {
       console.error("[GET /api/blogs] Error:", err);
-      return res.status(500).json({ error: "Failed to fetch blogs" });
+      return res.status(500).json({ error: "Failed to fetch blog posts." });
     }
   }
 
@@ -55,7 +53,7 @@ export default async function handler(req, res) {
         metaDescription,
         keywords = "",
         author = "Admin",
-        category = "uncategorized",
+        category = "Uncategorized",
         status = "draft",
         date = new Date(),
       } = req.body;
@@ -85,22 +83,24 @@ export default async function handler(req, res) {
       await newBlog.save();
 
       return res.status(201).json({
-        slug: newBlog.slug,
-        title: newBlog.title,
-        excerpt: newBlog.excerpt,
-        image: newBlog.featuredImage,
-        author: newBlog.author,
-        category: newBlog.category,
-        date: newBlog.date?.toISOString() || null,
-        status: newBlog.status === "published" ? "Published" : "Draft",
-        deleted: false,
+        post: {
+          slug: newBlog.slug,
+          title: newBlog.title,
+          excerpt: newBlog.excerpt,
+          image: newBlog.featuredImage,
+          author: newBlog.author,
+          category: newBlog.category,
+          date: newBlog.date?.toISOString() || null,
+          status: newBlog.status === "published" ? "Published" : "Draft",
+          deleted: false,
+        },
       });
     } catch (err) {
       console.error("[POST /api/blogs] Error:", err);
-      return res.status(500).json({ error: "Failed to create blog" });
+      return res.status(500).json({ error: "Failed to create blog post." });
     }
   }
 
   res.setHeader("Allow", ["GET", "POST"]);
-  return res.status(405).json({ error: "Method not allowed" });
+  return res.status(405).json({ error: `Method ${req.method} not allowed.` });
 }
