@@ -14,11 +14,13 @@ export default async function handler(req, res) {
         : {
             $or: [{ deleted: false }, { deleted: { $exists: false } }],
             status: "published",
+            title: { $exists: true, $ne: "" },
+            content: { $exists: true, $ne: "" },
           };
 
       const blogs = await Blog.find(query).sort({ date: -1 }).lean();
 
-      console.log("✅ Blogs fetched:", blogs); // DEBUG
+      console.log("✅ Blogs fetched:", blogs.length); // DEBUG COUNT
 
       const adapted = blogs.map((b) => ({
         slug: b.slug,
