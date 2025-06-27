@@ -1,26 +1,21 @@
-// pages/api/auth/logout.js
-import { serialize } from 'cookie';
+import { serialize } from "cookie";
+import allowCors from "@/middleware/cors";
 
-export default function handler(req, res) {
-  console.log("🔒 [LOGOUT] API hit");
-
-  if (req.method !== 'POST') {
-    console.log("❌ Method not allowed on logout:", req.method);
-    return res.status(405).json({ error: 'Method Not Allowed' });
+function handler(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  // Clear the HttpOnly token cookie
-  res.setHeader(
-    'Set-Cookie',
-    serialize('token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0, // Expire immediately
-    })
-  );
+  res.setHeader("Set-Cookie", serialize("token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    maxAge: 0,
+  }));
 
-  console.log("🍪 Token cookie cleared");
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ success: true, message: "Logged out successfully" });
 }
+
+export default allowCors(handler);

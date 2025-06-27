@@ -67,4 +67,4 @@ export const config = {
   },
 };
 
-export default handler;
+export default allowCors(handler);

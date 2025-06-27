@@ -3,6 +3,7 @@ import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import formData from "form-data";
 import Mailgun from "mailgun.js";
+import allowCors from "@/middleware/cors";
 
 const mailgun = new Mailgun(formData);
 const mg = mailgun.client({
@@ -15,9 +16,10 @@ const MAILGUN_FROM = process.env.MAILGUN_FROM || "no-reply@mail.rentfax.io";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "info@rentfax.io";
 const NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://rentfax.io";
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method Not Allowed" });
+    res.setHeader("Allow", ["POST"]);
+    return res.status(405).json({ success: false, message: "Method Not Allowed" });
   }
 
   await dbConnect();
@@ -53,7 +55,7 @@ export default async function handler(req, res) {
 
     console.log("✅ New user created:", newUser.email);
 
-    // Fire admin notification via Mailgun (non-blocking)
+    // Fire admin notification (non-blocking)
     mg.messages
       .create(MAILGUN_DOMAIN, {
         from: MAILGUN_FROM,
@@ -85,3 +87,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export default allowCors(handler);

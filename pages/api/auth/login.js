@@ -1,11 +1,11 @@
-// pages/api/auth/login.js
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { serialize } from "cookie";
+import allowCors from "@/middleware/cors";
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).json({ error: "Method Not Allowed" });
@@ -15,28 +15,40 @@ export default async function handler(req, res) {
     await dbConnect();
 
     const { email = "", password = "" } = req.body;
+
     const cleanedEmail = email.toLowerCase().trim();
     const cleanedPassword = password.trim();
 
-    console.log("📩 Login request received:", { email: cleanedEmail });
-
     if (!cleanedEmail || !cleanedPassword) {
-      return res.status(400).json({ error: "Email and password are required." });
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required.",
+      });
     }
 
     const user = await User.findOne({ email: cleanedEmail }).lean();
 
     if (!user || !user.passwordHash) {
-      return res.status(401).json({ error: "Invalid email or password." });
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password.",
+      });
     }
 
     const isMatch = await bcrypt.compare(cleanedPassword, user.passwordHash);
+
     if (!isMatch) {
-      return res.status(401).json({ error: "Invalid email or password." });
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password.",
+      });
     }
 
     if (user.status === "pending") {
-      return res.status(403).json({ error: "Account is pending approval." });
+      return res.status(403).json({
+        success: false,
+        error: "Account is pending approval.",
+      });
     }
 
     const token = jwt.sign(
@@ -57,7 +69,7 @@ export default async function handler(req, res) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge: 60 * 60 * 24 * 7, // 7 days
       })
     );
 
@@ -74,6 +86,11 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("❌ Login error:", err);
-    return res.status(500).json({ error: "Internal server error." });
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error. Please try again later.",
+    });
   }
 }
+
+export default allowCors(handler);
