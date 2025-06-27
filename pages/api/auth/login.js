@@ -11,39 +11,31 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  await dbConnect();
-
-  const { email = "", password = "" } = req.body;
-  const cleanedEmail = email.toLowerCase().trim();
-  const cleanedPassword = password.trim();
-
-  console.log("📩 Login request received:", { email: cleanedEmail });
-
-  if (!cleanedEmail || !cleanedPassword) {
-    console.warn("⚠️ Missing email or password in request.");
-    return res.status(400).json({ error: "Email and password are required." });
-  }
-
   try {
-    const user = await User.findOne({ email: cleanedEmail });
+    await dbConnect();
 
-    console.log("👤 User found:", user ? { email: user.email, status: user.status } : "No user found");
+    const { email = "", password = "" } = req.body;
+    const cleanedEmail = email.toLowerCase().trim();
+    const cleanedPassword = password.trim();
+
+    console.log("📩 Login request received:", { email: cleanedEmail });
+
+    if (!cleanedEmail || !cleanedPassword) {
+      return res.status(400).json({ error: "Email and password are required." });
+    }
+
+    const user = await User.findOne({ email: cleanedEmail }).lean();
 
     if (!user || !user.passwordHash) {
-      console.warn("❌ Invalid email or missing passwordHash.");
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    const passwordMatches = await bcrypt.compare(cleanedPassword, user.passwordHash);
-    console.log("🔐 Password match:", passwordMatches);
-
-    if (!passwordMatches) {
-      console.warn("❌ Password mismatch.");
+    const isMatch = await bcrypt.compare(cleanedPassword, user.passwordHash);
+    if (!isMatch) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
     if (user.status === "pending") {
-      console.warn("⏳ Account pending approval.");
       return res.status(403).json({ error: "Account is pending approval." });
     }
 
@@ -65,11 +57,9 @@ export default async function handler(req, res) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        maxAge: 60 * 60 * 24 * 7,
       })
     );
-
-    console.log("✅ Login successful. Sending response...");
 
     return res.status(200).json({
       success: true,

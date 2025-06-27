@@ -15,10 +15,9 @@ const MAILGUN_FROM = process.env.MAILGUN_FROM || "no-reply@mail.rentfax.io";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "info@rentfax.io";
 const NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://rentfax.io";
 
-console.log("✅ New user created:", newUser._id);
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
@@ -29,7 +28,10 @@ export default async function handler(req, res) {
   const cleanedEmail = email.toLowerCase().trim();
   const cleanedPassword = password.trim();
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail) || cleanedPassword.length < 6) {
+  if (
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail) ||
+    cleanedPassword.length < 6
+  ) {
     return res.status(400).json({
       success: false,
       message: "Invalid email or password too short.",
@@ -38,6 +40,7 @@ export default async function handler(req, res) {
 
   try {
     const existingUser = await User.findOne({ email: cleanedEmail });
+
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -54,7 +57,9 @@ export default async function handler(req, res) {
       status: "pending",
     });
 
-    // Fire admin notification via Mailgun
+    console.log("✅ New user created:", newUser._id);
+
+    // Notify Admin
     try {
       await mg.messages.create(MAILGUN_DOMAIN, {
         from: MAILGUN_FROM,
@@ -70,7 +75,7 @@ export default async function handler(req, res) {
         `,
       });
     } catch (mailError) {
-      console.warn("📭 Mailgun error (non-blocking):", mailError.message || mailError);
+      console.warn("📭 Mailgun error (non-blocking):", mailError?.message || mailError);
     }
 
     return res.status(201).json({
