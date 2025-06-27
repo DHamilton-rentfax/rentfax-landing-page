@@ -12,13 +12,15 @@ export default function BlogList() {
   const { user } = useAuth();
 
   useEffect(() => {
-    fetch("/api/blogs")
+    const endpoint = `${API_ORIGIN}/api/blogs`;
+    fetch(endpoint)
       .then((res) => res.json())
-      .then((data) =>
+      .then((data) => {
+        console.log("📦 Blogs fetched:", data); // DEBUG LOG
         setBlogs(
           data.map((p) => ({
             ...p,
-            image: p.image.startsWith("http") ? p.image : API_ORIGIN + p.image,
+            image: p.image?.startsWith("http") ? p.image : API_ORIGIN + p.image,
             cleanContent: stripHtml(p.content || ""),
             author: p.author || "Anonymous",
             authorSlug:
@@ -26,9 +28,11 @@ export default function BlogList() {
               (p.author || "").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
             authorAvatar: p.authorAvatar || "",
           }))
-        )
-      )
-      .catch(console.error);
+        );
+      })
+      .catch((err) => {
+        console.error("❌ Error loading blogs:", err);
+      });
   }, []);
 
   const readTime = (text) => Math.max(1, Math.round(text.split(" ").length / 200));
@@ -51,7 +55,7 @@ export default function BlogList() {
   );
 
   if (blogs.length === 0) {
-    return <div className="p-12 text-center text-gray-500">Loading posts…</div>;
+    return <div className="p-12 text-center text-gray-500">No blog posts found.</div>;
   }
 
   const hero = blogs[0];
@@ -63,7 +67,6 @@ export default function BlogList() {
     <main className="py-28 pb-12 px-6 max-w-7xl mx-auto">
       <h1 className="text-4xl font-extrabold mb-6 text-indigo-800">RentFAX Insights</h1>
 
-      {/* Hero Section */}
       <section className="mb-16">
         <Link href={`/blogs/${hero.slug}`} className="group block overflow-hidden rounded-xl shadow hover:shadow-xl transition">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -77,7 +80,6 @@ export default function BlogList() {
         </Link>
       </section>
 
-      {/* Trending Section */}
       <section className="mb-16">
         <h3 className="text-xl font-semibold mb-4 text-gray-700">Trending</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -94,7 +96,6 @@ export default function BlogList() {
         </div>
       </section>
 
-      {/* Grid Section */}
       <section>
         <h3 className="text-xl font-semibold mb-4 text-gray-700">More from the Blog</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -111,7 +112,6 @@ export default function BlogList() {
         </div>
       </section>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-12">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (

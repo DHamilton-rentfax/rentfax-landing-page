@@ -5,7 +5,6 @@ import Blog from "@/models/Post";
 export default async function handler(req, res) {
   await connectDB();
 
-  // ─── GET All Blogs ──────────────────────────────────────────────
   if (req.method === "GET") {
     try {
       const showDeleted = req.query.deleted === "true";
@@ -18,6 +17,8 @@ export default async function handler(req, res) {
           };
 
       const blogs = await Blog.find(query).sort({ date: -1 }).lean();
+
+      console.log("✅ Blogs fetched:", blogs); // DEBUG
 
       const adapted = blogs.map((b) => ({
         slug: b.slug,
@@ -38,7 +39,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // ─── POST New Blog ──────────────────────────────────────────────
   if (req.method === "POST") {
     try {
       const {
@@ -99,7 +99,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // ─── Method Not Allowed ─────────────────────────────────────────
   res.setHeader("Allow", ["GET", "POST"]);
   return res.status(405).json({ error: "Method not allowed" });
 }
