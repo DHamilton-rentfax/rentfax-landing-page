@@ -8,7 +8,7 @@ import allowCors from "@/middleware/cors";
 async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return res.status(405).json({ success: false, error: "Method Not Allowed" });
   }
 
   try {
@@ -36,7 +36,6 @@ async function handler(req, res) {
     }
 
     const isMatch = await bcrypt.compare(cleanedPassword, user.passwordHash);
-
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -67,11 +66,13 @@ async function handler(req, res) {
       serialize("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: "Lax",
         path: "/",
         maxAge: 60 * 60 * 24 * 7, // 7 days
       })
     );
+
+    res.setHeader("Content-Type", "application/json");
 
     return res.status(200).json({
       success: true,
