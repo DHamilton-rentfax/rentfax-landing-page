@@ -19,7 +19,10 @@ const NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://rentfax.io";
 async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
-    return res.status(405).json({ success: false, message: "Method Not Allowed" });
+    res.setHeader("Content-Type", "application/json");
+    return res
+      .status(405)
+      .json({ success: false, message: "Method Not Allowed" });
   }
 
   await dbConnect();
@@ -28,7 +31,10 @@ async function handler(req, res) {
   const cleanedEmail = email.toLowerCase().trim();
   const cleanedPassword = password.trim();
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail) || cleanedPassword.length < 6) {
+  if (
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail) ||
+    cleanedPassword.length < 6
+  ) {
     return res.status(400).json({
       success: false,
       message: "Invalid email or password too short.",
