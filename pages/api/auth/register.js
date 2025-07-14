@@ -17,6 +17,13 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "info@rentfax.io";
 const NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://rentfax.io";
 
 async function handler(req, res) {
+  // ✅ Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
+  }
+
+  // ✅ Only allow POST
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
     res.setHeader("Content-Type", "application/json");
@@ -61,7 +68,7 @@ async function handler(req, res) {
 
     console.log("✅ New user created:", newUser.email);
 
-    // Fire admin notification (non-blocking)
+    // ✅ Non-blocking admin email notification
     mg.messages
       .create(MAILGUN_DOMAIN, {
         from: MAILGUN_FROM,
