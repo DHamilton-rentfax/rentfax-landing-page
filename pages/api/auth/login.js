@@ -6,6 +6,7 @@ import { serialize } from "cookie";
 import allowCors from "@/middleware/cors";
 
 async function handler(req, res) {
+  // Allow only POST
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).json({ success: false, error: "Method Not Allowed" });
@@ -15,7 +16,6 @@ async function handler(req, res) {
     await dbConnect();
 
     const { email = "", password = "" } = req.body;
-
     const cleanedEmail = email.toLowerCase().trim();
     const cleanedPassword = password.trim();
 
@@ -50,6 +50,7 @@ async function handler(req, res) {
       });
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       {
         id: user._id,
@@ -61,6 +62,7 @@ async function handler(req, res) {
       { expiresIn: "7d" }
     );
 
+    // Set secure HTTP-only cookie
     res.setHeader(
       "Set-Cookie",
       serialize("token", token, {
@@ -72,6 +74,7 @@ async function handler(req, res) {
       })
     );
 
+    // Explicitly set content type
     res.setHeader("Content-Type", "application/json");
 
     return res.status(200).json({

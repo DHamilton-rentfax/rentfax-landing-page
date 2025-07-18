@@ -4,8 +4,20 @@ import Hero from "@/components/Hero"
 import Features from "@/components/Features"
 import Testimonials from "@/components/Testimonials"
 import Pricing from "@/components/Pricing"
+import BlogList from "@/components/BlogList"
 
-export default function Home() {
+export async function getServerSideProps() {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/blogs`)
+    const blogs = await res.json()
+    return { props: { blogs } }
+  } catch (err) {
+    console.error("Blog fetch error:", err)
+    return { props: { blogs: [] } }
+  }
+}
+
+export default function Home({ blogs }) {
   return (
     <>
       <Head>
@@ -19,29 +31,33 @@ export default function Home() {
       </Head>
 
       <main className="w-full bg-white text-gray-800">
-        {/* Hero (full width - Hero component itself can handle its own bg & padding) */}
         <section className="w-full">
           <Hero />
         </section>
 
-        {/* Features (full width white bg) */}
         <section className="w-full bg-white py-20">
           <div className="max-w-7xl mx-auto px-6">
             <Features />
           </div>
         </section>
 
-        {/* Testimonials (full width gray-50 bg) */}
         <section className="w-full bg-gray-50 py-20">
           <div className="max-w-6xl mx-auto px-6">
             <Testimonials />
           </div>
         </section>
 
-        {/* Pricing (full width white bg) */}
         <section className="w-full bg-white py-20">
           <div className="max-w-6xl mx-auto px-6">
             <Pricing />
+          </div>
+        </section>
+
+        {/* ✅ Blog Section */}
+        <section className="w-full bg-gray-100 py-20">
+          <div className="max-w-6xl mx-auto px-6">
+            <h2 className="text-3xl font-bold mb-8">Latest Blog Posts</h2>
+            <BlogList blogs={blogs} />
           </div>
         </section>
       </main>

@@ -7,7 +7,7 @@ async function handler(req, res) {
 
   if (req.method === "GET") {
     try {
-      const showDeleted = req.query.deleted === "true";
+      const showDeleted = req.query?.deleted === "true";
 
       const query = showDeleted
         ? { deleted: true }
@@ -18,16 +18,16 @@ async function handler(req, res) {
             content: { $exists: true, $ne: "" },
           };
 
-      const blogs = await Blog.find(query).sort({ date: -1 }).lean();
+      const blogs = await Blog.find(query).sort({ createdAt: -1 }).lean();
 
       const posts = blogs.map((b) => ({
         slug: b.slug,
         title: b.title,
-        excerpt: b.excerpt,
+        excerpt: b.excerpt || "",
         image: b.featuredImage || "",
         author: b.author || "Unknown",
         category: (b.category || "uncategorized").toLowerCase(),
-        date: b.date?.toISOString() || null,
+        date: b.createdAt?.toISOString() || null,
         status: b.deleted ? "Trash" : b.status === "published" ? "Published" : "Draft",
         deleted: !!b.deleted,
       }));
@@ -35,17 +35,20 @@ async function handler(req, res) {
       return res.status(200).json({ success: true, posts });
     } catch (err) {
       console.error("[GET /api/blogs] Error:", err);
-      return res.status(500).json({ success: false, error: "Failed to fetch blog posts." });
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch blog posts.",
+      });
     }
   }
 
   if (req.method === "POST") {
     try {
       const {
-        title,
-        slug,
-        content,
-        excerpt,
+        title = "",
+        slug = "",
+        content = "",
+        excerpt = "",
         featuredImage = "",
         subtitle = "",
         tags = [],
@@ -58,26 +61,39 @@ async function handler(req, res) {
         date = new Date(),
       } = req.body;
 
-      if (!title?.trim() || !slug?.trim() || !content?.trim()) {
+      const trimmedSlug = slug.trim().toLowerCase();
+      const trimmedTitle = title.trim();
+      const trimmedContent = content.trim();
+
+      if (!trimmedTitle || !trimmedSlug || !trimmedContent) {
         return res.status(400).json({
           success: false,
           error: "Missing required fields: title, slug, or content.",
         });
       }
 
+      // 🔒 Ensure unique slug
+      const existing = await Blog.findOne({ slug: trimmedSlug });
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          error: "Slug already exists. Please choose a unique slug.",
+        });
+      }
+
       const newBlog = new Blog({
-        title: title.trim(),
-        subtitle: subtitle.trim(),
-        slug: slug.trim(),
-        content: content.trim(),
+        title: trimmedTitle,
+        subtitle: subtitle?.trim() || "",
+        slug: trimmedSlug,
+        content: trimmedContent,
         excerpt: excerpt?.trim() || "",
         featuredImage,
         tags,
-        metaTitle: metaTitle?.trim() || title.trim(),
+        metaTitle: metaTitle?.trim() || trimmedTitle,
         metaDescription: metaDescription?.trim() || excerpt?.trim() || "",
-        keywords: keywords.trim(),
-        author: author.trim(),
-        category: category.trim().toLowerCase(),
+        keywords: keywords?.trim() || "",
+        author: author?.trim() || "Admin",
+        category: category?.trim().toLowerCase() || "uncategorized",
         status,
         date,
         deleted: false,
@@ -94,17 +110,21 @@ async function handler(req, res) {
           image: newBlog.featuredImage,
           author: newBlog.author,
           category: newBlog.category,
-          date: newBlog.date?.toISOString() || null,
+          date: newBlog.createdAt?.toISOString() || null,
           status: newBlog.status === "published" ? "Published" : "Draft",
           deleted: false,
         },
       });
     } catch (err) {
       console.error("[POST /api/blogs] Error:", err);
-      return res.status(500).json({ success: false, error: "Failed to create blog post." });
+      return res.status(500).json({
+        success: false,
+        error: "Failed to create blog post.",
+      });
     }
   }
 
+  // Method not allowed
   res.setHeader("Allow", ["GET", "POST"]);
   return res.status(405).json({
     success: false,

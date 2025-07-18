@@ -1,3 +1,5 @@
+// pages/api/auth/register.js
+
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
@@ -19,46 +21,57 @@ const NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://rentfax.io";
 async function handler(req, res) {
   // ✅ Handle CORS preflight
   if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   // ✅ Only allow POST
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
-    res.setHeader("Content-Type", "application/json");
-    return res
-      .status(405)
-      .json({ success: false, message: "Method Not Allowed" });
-  }
-
-  await dbConnect();
-
-  const { email = "", password = "" } = req.body;
-  const cleanedEmail = email.toLowerCase().trim();
-  const cleanedPassword = password.trim();
-
-  if (
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail) ||
-    cleanedPassword.length < 6
-  ) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid email or password too short.",
-    });
+    return res.status(405).json({ success: false, error: "Method Not Allowed" });
   }
 
   try {
+    await dbConnect();
+
+    const { email = "", password = "" } = req.body;
+    const cleanedEmail = email.toLowerCase().trim();
+    const cleanedPassword = password.trim();
+
+    // ✅ Validate inputs
+    if (!cleanedEmail || !cleanedPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required.",
+      });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid email format.",
+      });
+    }
+
+    if (cleanedPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 6 characters.",
+      });
+    }
+
+    // ✅ Check for existing user
     const existingUser = await User.findOne({ email: cleanedEmail });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: "That email is already registered.",
+        error: "Email is already registered.",
       });
     }
 
+    // ✅ Hash password
     const hashedPassword = await bcrypt.hash(cleanedPassword, 12);
 
+    // ✅ Create new user
     const newUser = await User.create({
       email: cleanedEmail,
       passwordHash: hashedPassword,
@@ -68,7 +81,7 @@ async function handler(req, res) {
 
     console.log("✅ New user created:", newUser.email);
 
-    // ✅ Non-blocking admin email notification
+    // ✅ Send admin email (non-blocking)
     mg.messages
       .create(MAILGUN_DOMAIN, {
         from: MAILGUN_FROM,
@@ -88,17 +101,19 @@ async function handler(req, res) {
         console.warn("📭 Mailgun error (non-blocking):", mailError.message || mailError)
       );
 
+    // ✅ Success response
     return res.status(201).json({
       success: true,
       message: "Registration submitted. Awaiting admin approval.",
     });
   } catch (err) {
-    console.error("❌ Registration error:", err.message || err);
+    console.error("❌ Registration error:", err);
     return res.status(500).json({
       success: false,
-      message: "Server error. Please try again later.",
+      error: "Internal server error. Please try again later.",
     });
   }
 }
 
+// ✅ Wrap with CORS middleware
 export default allowCors(handler);

@@ -13,7 +13,6 @@ const postSchema = new mongoose.Schema({
   author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: false,
   },
   category: { type: String, default: 'uncategorized', index: true },
   status: {
@@ -29,6 +28,8 @@ const postSchema = new mongoose.Schema({
     default: {},
   },
   deleted: { type: Boolean, default: false, index: true },
-}, { timestamps: true });
+}, {
+  timestamps: true, // adds createdAt and updatedAt
+});
 
 export default mongoose.models.Post || mongoose.model('Post', postSchema);

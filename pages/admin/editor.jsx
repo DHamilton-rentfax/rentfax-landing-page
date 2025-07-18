@@ -8,6 +8,16 @@ import dynamic from "next/dynamic"
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false })
 import "react-quill/dist/quill.snow.css"
 
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^À-ɏ\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 export default function EditorPage() {
   const router = useRouter()
   const { user } = useAuth()
@@ -31,27 +41,35 @@ export default function EditorPage() {
     published: true,
   })
 
+  const [slugAvailable, setSlugAvailable] = useState(null)
   const [preview, setPreview] = useState(null)
   const [loadingImage, setLoadingImage] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Auth check
   useEffect(() => {
     if (user === null) router.replace("/admin/login")
   }, [user, router])
 
-  // Generate slug from title
   useEffect(() => {
     if (form.title && !isEditing) {
-      const generated = form.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "")
+      const generated = slugify(form.title)
       setForm((p) => ({ ...p, slug: generated }))
+
+      const checkSlug = async () => {
+        try {
+          const res = await fetch(`/api/blogs/check-slug?slug=${generated}`)
+          const json = await res.json()
+          setSlugAvailable(json.available)
+        } catch (err) {
+          console.error("Slug check error:", err)
+          setSlugAvailable(null)
+        }
+      }
+
+      checkSlug()
     }
   }, [form.title, isEditing])
 
-  // Load post if editing
   useEffect(() => {
     if (!isEditing) return
     api
@@ -77,7 +95,6 @@ export default function EditorPage() {
       .catch(() => toast.error("Error loading blog"))
   }, [isEditing, edit, user])
 
-  // Prevent accidental close
   useEffect(() => {
     const warnOnClose = (e) => {
       if (!saving && form.content.length > 10) {
@@ -125,6 +142,11 @@ export default function EditorPage() {
   const handleSubmit = async () => {
     setSaving(true)
     try {
+      if (!slugAvailable && !isEditing) {
+        toast.error("Slug is already taken.")
+        return
+      }
+
       const payload = {
         title: form.title,
         slug: form.slug,
@@ -165,7 +187,16 @@ export default function EditorPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <input name="title" value={form.title} onChange={handleChange} placeholder="Title" className="border px-3 py-2 rounded" />
-        <input name="slug" value={form.slug} onChange={handleChange} placeholder="Slug" className="border px-3 py-2 rounded" />
+        <div>
+          <input name="slug" value={form.slug} onChange={handleChange} placeholder="Slug" className="border px-3 py-2 rounded w-full" />
+          {form.slug && (
+            <p className="text-sm mt-1">
+              {slugAvailable === null && "Checking slug…"}
+              {slugAvailable === true && <span className="text-green-600">✅ Available</span>}
+              {slugAvailable === false && <span className="text-red-600">❌ Taken</span>}
+            </p>
+          )}
+        </div>
         <input name="excerpt" value={form.excerpt} onChange={handleChange} placeholder="Excerpt" className="border px-3 py-2 rounded" />
         <input type="date" name="createdAt" value={form.createdAt.split("T")[0]} onChange={handleChange} className="border px-3 py-2 rounded" />
         <input name="category" value={form.category} onChange={handleChange} placeholder="Category" className="border px-3 py-2 rounded" />

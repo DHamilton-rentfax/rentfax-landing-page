@@ -2,13 +2,16 @@
 
 export default function allowCors(handler) {
   return async (req, res) => {
-    const origin =
+    const originHeader = req.headers.origin;
+
+    // Set allowed origin based on environment
+    const allowedOrigin =
       process.env.NODE_ENV === 'production'
         ? 'https://rentfax.io'
-        : req.headers.origin || 'http://localhost:3000';
+        : originHeader || 'http://localhost:3000';
 
-    // Never use "*" when credentials are allowed
-    res.setHeader('Access-Control-Allow-Origin', origin);
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader(
       'Access-Control-Allow-Methods',
@@ -19,9 +22,9 @@ export default function allowCors(handler) {
       'X-CSRF-Token, X-Requested-With, Accept, Content-Type, Authorization'
     );
 
+    // Handle preflight requests
     if (req.method === 'OPTIONS') {
-      res.status(200).end();
-      return;
+      return res.status(200).end();
     }
 
     return handler(req, res);

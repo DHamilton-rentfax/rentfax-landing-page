@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import parse from "html-react-parser";
 import { Bar } from "react-chartjs-2";
+import ReadingProgressBar from "@/components/ReadingProgressBar";
+import ShareButtons from "@/components/ShareButtons";
+import AuthorCard from "@/components/AuthorCard";
+import NewsletterCTA from "@/components/NewsletterCTA";
+import useScrollAnalytics from "@/hooks/useScrollAnalytics";
 import {
   Chart as ChartJS,
   BarElement,
@@ -17,66 +21,100 @@ import ViewCounter from "@/components/ViewCounter";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
+// ✅ FIXED baseUrl logic
 export async function getServerSideProps({ params, req }) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://${req.headers.host}`;
-  const res = await fetch(`${baseUrl}/api/blogs/${params.slug}`);
-  if (!res.ok) return { notFound: true };
-  const post = await res.json();
+  const protocol = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers.host;
+  const baseUrl = `${protocol}://${host}`;
 
-  // Fetch all slugs to determine previous/next
-  const allRes = await fetch(`${baseUrl}/api/blogs`);
-  const allPosts = await allRes.json();
-  const index = allPosts.findIndex(p => p.slug === params.slug);
-  const prevPost = allPosts[index - 1] || null;
-  const nextPost = allPosts[index + 1] || null;
+  try {
+    const res = await fetch(`${baseUrl}/api/blogs/${params.slug}`);
+    if (!res.ok) return { notFound: true };
+    const post = await res.json();
 
-  return { props: { post, prevPost, nextPost } };
+    const allRes = await fetch(`${baseUrl}/api/blogs`);
+    const allData = await allRes.json();
+
+    const posts = Array.isArray(allData.posts) ? allData.posts : [];
+    const index = posts.findIndex((p) => p.slug === params.slug);
+    const prevPost = posts[index - 1] || null;
+    const nextPost = posts[index + 1] || null;
+
+    return { props: { post, prevPost, nextPost } };
+  } catch (err) {
+    console.error("Blog fetch error:", err);
+    return { notFound: true };
+  }
 }
 
 export default function BlogPost({ post, prevPost, nextPost }) {
   const [related, setRelated] = useState([]);
+  useScrollAnalytics(post._id);
 
   useEffect(() => {
+    if (!post?.tags?.length) return;
+
     fetch("/api/blogs/related", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tags: post.tags || [] }),
+      body: JSON.stringify({ tags: post.tags }),
     })
       .then((r) => r.json())
       .then(setRelated)
       .catch(console.error);
-  }, [post.tags]);
+  }, [post?.tags]);
 
   const estimateReadTime = (text) =>
-    Math.max(1, Math.round(text.split(" ").length / 200));
+    Math.max(1, Math.round((text || "").split(" ").length / 200));
 
   const weeklyViews = Object.entries(post.viewsByDate || {})
     .slice(-7)
-    .map(([date, count]) => ({ date, count }));
+    .map(([date, count]) => ({
+      date: new Date(date).toLocaleDateString(),
+      count,
+    }));
 
   const chartData = {
     labels: weeklyViews.map((v) => v.date),
-    datasets: [{ data: weeklyViews.map((v) => v.count), borderRadius: 4 }],
+    datasets: [
+      {
+        label: "Views",
+        data: weeklyViews.map((v) => v.count),
+        backgroundColor: "rgba(99, 102, 241, 0.6)",
+        borderRadius: 4,
+      },
+    ],
   };
 
   const chartOptions = {
     plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1 },
+      },
+    },
   };
 
   return (
     <>
       <Head>
         <title>{post.metaTitle || post.title} – RentFAX Blog</title>
-        {post.metaDescription && (
-          <meta name="description" content={post.metaDescription} />
-        )}
+        <meta
+          name="description"
+          content={post.metaDescription || post.excerpt || ""}
+        />
         <meta property="og:title" content={post.title} />
-        <meta property="og:description" content={post.excerpt} />
+        <meta
+          property="og:description"
+          content={post.metaDescription || post.excerpt || ""}
+        />
         {post.featuredImage && (
           <meta property="og:image" content={post.featuredImage} />
         )}
       </Head>
+
+      <ReadingProgressBar />
 
       <section className="w-full pt-24 pb-12 bg-white antialiased">
         <div className="max-w-5xl mx-auto px-4">
@@ -89,34 +127,48 @@ export default function BlogPost({ post, prevPost, nextPost }) {
           )}
 
           <h1 className="text-4xl font-bold mb-2">{post.title}</h1>
-          {post.subtitle && <h2 className="text-xl text-gray-600 mb-4">{post.subtitle}</h2>}
-          {post.excerpt && <p className="text-gray-600 mb-6">{post.excerpt}</p>}
+          {post.subtitle && (
+            <h2 className="text-xl text-gray-600 mb-4">{post.subtitle}</h2>
+          )}
+          {post.excerpt && (
+            <p className="text-gray-600 mb-6">{post.excerpt}</p>
+          )}
 
           <div className="flex items-center gap-3 text-sm text-gray-500 mb-10">
             <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-indigo-700">
               {post.author?.[0]?.toUpperCase() || "?"}
             </div>
             <Link
-              href={`/authors/${post.authorSlug || post.author}`}
+              href={`/authors/${post.authorSlug || post.author || "admin"}`}
               className="font-medium text-gray-700 hover:underline"
             >
               {post.author || "Admin"}
             </Link>
             <span>•</span>
             <span>
-              {new Date(post.date).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              {new Date(post.date || post.updatedAt).toLocaleDateString()}
             </span>
             <span>•</span>
             <span>{estimateReadTime(post.content)} min read</span>
           </div>
 
           <article className="prose prose-lg max-w-none mb-8">
-            {parse(post.content)}
+            <div dangerouslySetInnerHTML={{ __html: post.content }} />
           </article>
+
+          {/* ✅ DOMAIN FIXED */}
+          <ShareButtons
+            url={`https://rentfax.io/blogs/${post.slug}`}
+            title={post.title}
+          />
+
+          <AuthorCard
+            name={post.author}
+            bio={post.authorBio}
+            avatar={post.authorAvatar}
+          />
+
+          <NewsletterCTA />
 
           <div className="mt-4 mb-6 text-sm text-gray-500">
             <ViewCounter postId={post._id} />
@@ -161,13 +213,19 @@ export default function BlogPost({ post, prevPost, nextPost }) {
 
           <div className="mt-20 grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-10">
             {prevPost && (
-              <Link href={`/blogs/${prevPost.slug}`} className="block p-4 border rounded hover:shadow-md transition">
+              <Link
+                href={`/blogs/${prevPost.slug}`}
+                className="block p-4 border rounded hover:shadow-md transition"
+              >
                 <h4 className="font-semibold text-lg mb-2">← Previous Post</h4>
                 <p className="text-sm text-gray-600">{prevPost.title}</p>
               </Link>
             )}
             {nextPost && (
-              <Link href={`/blogs/${nextPost.slug}`} className="block p-4 border rounded hover:shadow-md transition">
+              <Link
+                href={`/blogs/${nextPost.slug}`}
+                className="block p-4 border rounded hover:shadow-md transition"
+              >
                 <h4 className="font-semibold text-lg mb-2">Next Post →</h4>
                 <p className="text-sm text-gray-600">{nextPost.title}</p>
               </Link>

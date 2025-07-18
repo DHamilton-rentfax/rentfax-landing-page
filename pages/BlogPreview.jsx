@@ -1,39 +1,37 @@
 // pages/BlogPreview.jsx
-import React, { useEffect, useState } from "react"
-import { useRouter } from "next/router"
-import Link from "next/link"
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import Link from "next/link";
 
 export default function BlogPreview() {
-  const router = useRouter()
-  const { slug } = router.query
-  const [blog, setBlog] = useState(null)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const { slug } = router.query;
+  const [blog, setBlog] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!slug) return
-    ;(async () => {
+    if (!slug) return;
+
+    (async () => {
       try {
-        const res = await fetch(`/api/blogs/${encodeURIComponent(slug)}`)
-        if (!res.ok) throw new Error(`Blog not found (${res.status})`)
-        const data = await res.json()
-        setBlog(data)
+        const res = await fetch(`/api/blogs/${encodeURIComponent(slug)}`);
+        if (!res.ok) throw new Error(`Blog not found (${res.status})`);
+        const data = await res.json();
+        if (!data?.success || !data?.post) throw new Error("Blog not found.");
+        setBlog(data.post); // ✅ Fix: Extract post object
       } catch (err) {
-        console.error(err)
-        setError(err.message)
+        console.error(err);
+        setError(err.message);
       }
-    })()
-  }, [slug])
+    })();
+  }, [slug]);
 
   if (error) {
-    return (
-      <div className="p-8 text-center text-red-500">
-        {error}
-      </div>
-    )
+    return <div className="p-8 text-center text-red-500">{error}</div>;
   }
 
   if (!blog) {
-    return <div className="p-8 text-center">Loading…</div>
+    return <div className="p-8 text-center">Loading…</div>;
   }
 
   return (
@@ -48,11 +46,12 @@ export default function BlogPreview() {
           </span>
         </Link>{" "}
         •{" "}
-        {new Date(blog.date).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })}{" "}
+        {blog.date &&
+          new Date(blog.date).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}{" "}
         • {blog.status}
       </div>
 
@@ -64,10 +63,14 @@ export default function BlogPreview() {
         />
       )}
 
-      <article
-        className="prose max-w-none"
-        dangerouslySetInnerHTML={{ __html: blog.content }}
-      />
+      {blog.content ? (
+        <article
+          className="prose max-w-none"
+          dangerouslySetInnerHTML={{ __html: blog.content }}
+        />
+      ) : (
+        <p className="text-gray-500 italic">No content available.</p>
+      )}
     </div>
-  )
+  );
 }
