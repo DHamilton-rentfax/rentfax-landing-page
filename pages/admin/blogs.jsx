@@ -1,309 +1,144 @@
-// pages/admin/blogs.jsx
-import React, { useEffect, useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/router"
-import { toast } from "react-hot-toast"
-import api from "@/lib/api"
-import ConfirmModal from "@/components/ConfirmModal"
-import { useAuth } from "../../context/AuthContext"
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import api from '@/lib/api';
 
 export default function AdminBlogs() {
-  const { user, logout } = useAuth()
-  const router = useRouter()
+  const [blogs, setBlogs] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  // CRUD & display state
-  const [blogs, setBlogs] = useState([])
-  const [filtered, setFiltered] = useState([])
-  const [search, setSearch] = useState("")
-  const [category, setCategory] = useState("all")
-  const [status, setStatus] = useState("all")
-  const [page, setPage] = useState(1)
-  const limit = 10
-
-  // Trash / restore state
-  const [showTrash, setShowTrash] = useState(false)
-  const [modalSlug, setModalSlug] = useState(null)
-
-  // 1️⃣ Load all posts (admin route should include deleted ones)
   useEffect(() => {
-    if (!user) return router.replace("/admin/login")
-    api
-      .get("/api/auth/blogs")
-      .then((data) => {
-        setBlogs(data)
-        setFiltered(data)
-      })
-      .catch(() => toast.error("Failed to load posts"))
-  }, [user])
+    const fetchBlogs = async () => {
+      try {
+        const res = await api.get('/api/auth/blogs', {
+          headers: { 'Cache-Control': 'no-cache' },
+        });
+        console.log('✅ [AdminBlogs] Raw API response:', res);
 
-  // 2️⃣ Apply filtering: live vs trash + search/category/status
+        const rawPosts = res?.posts;
+        if (!Array.isArray(rawPosts)) {
+          console.error('❌ [AdminBlogs] `posts` is not an array:', rawPosts);
+          setBlogs([]);
+          setFiltered([]);
+          return;
+        }
+
+        const cleanPosts = rawPosts
+          .filter((p) => p?.slug && p?.title)
+          .map((p) => ({
+            ...p,
+            slug: p.slug.trim(),
+            author:
+              p.authorName ||
+              (typeof p.author === 'object'
+                ? p.author.fullName || p.author.email
+                : p.author) ||
+              'Unknown',
+          }));
+
+        setBlogs(cleanPosts);
+        setFiltered(cleanPosts);
+        console.log('✅ [AdminBlogs] Cleaned blogs:', cleanPosts);
+      } catch (err) {
+        console.error('❌ [AdminBlogs] Failed to fetch blogs:', err);
+        setBlogs([]);
+        setFiltered([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBlogs();
+  }, []);
+
   useEffect(() => {
-    let list = blogs.filter((b) =>
-      showTrash ? b.deleted : !b.deleted
-    )
+    const term = search.toLowerCase();
+    const results = blogs.filter(
+      (b) =>
+        b.title?.toLowerCase().includes(term) ||
+        b.slug?.toLowerCase().includes(term)
+    );
+    setFiltered(results);
+  }, [search, blogs]);
 
-    if (search.trim()) {
-      list = list.filter((p) =>
-        p.title.toLowerCase().includes(search.toLowerCase())
-      )
-    }
-    if (category !== "all") {
-      list = list.filter(
-        (p) => (p.category || "uncategorized") === category
-      )
-    }
-    if (status !== "all") {
-      list = list.filter(
-        (p) => (p.status || "published") === status
-      )
-    }
-
-    setFiltered(list)
-    setPage(1)
-  }, [blogs, showTrash, search, category, status])
-
-  // pagination slice
-  const totalPages = Math.ceil(filtered.length / limit)
-  const paginated = filtered.slice((page - 1) * limit, page * limit)
-
-  // 3️⃣ Navigate to editor
   const handleEdit = (slug) => {
-    router.push(`/admin/editor?edit=${slug}`)
-  }
-
-  // 4️⃣ Soft-delete (move to trash)
-  const confirmDelete = (slug) => setModalSlug(slug)
-  const handleDelete = async () => {
-    try {
-      await api.delete(`/api/blogs/${modalSlug}`)
-      toast.success(showTrash ? "Deleted permanently" : "Moved to trash")
-      setBlogs((b) =>
-        b.map((x) =>
-          x.slug === modalSlug
-            ? { ...x, deleted: showTrash ? true : true }
-            : x
-        )
-      )
-    } catch {
-      toast.error("Action failed")
-    } finally {
-      setModalSlug(null)
-    }
-  }
-
-  // 5️⃣ Restore from trash
-  const handleRestore = async (slug) => {
-    try {
-      await api.patch(`/api/blogs/${slug}?action=restore`)
-      toast.success("Restored post")
-      setBlogs((b) =>
-        b.map((x) =>
-          x.slug === slug ? { ...x, deleted: false } : x
-        )
-      )
-    } catch {
-      toast.error("Restore failed")
-    }
-  }
-
-  // Helpers
-  const categories = [
-    "all",
-    ...new Set(blogs.map((b) => b.category || "uncategorized")),
-  ]
-  const statuses = ["all", "published", "draft"]
+    if (!slug) return;
+    const cleanSlug = slug.trim();
+    router.push(`/admin/editor?edit=${encodeURIComponent(cleanSlug)}`);
+  };
 
   return (
-    <div className="w-full max-w-[90vw] mx-auto px-8 py-8">
-      {/* Title + Toggle Live/Trash */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Admin Blog Manager</h1>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={showTrash}
-            onChange={() => setShowTrash((v) => !v)}
-          />
-          {showTrash ? "Viewing Trash" : "Viewing Live"}
-        </label>
+        <button
+          onClick={() => router.push('/admin/editor')}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded"
+        >
+          + New Post
+        </button>
       </div>
 
-      {/* Filters + Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex flex-wrap items-center gap-4 flex-1">
-          <input
-            type="text"
-            placeholder="Search title..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-[200px] border px-4 py-2 rounded"
-          />
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="border px-4 py-2 rounded"
-          >
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c.charAt(0).toUpperCase() + c.slice(1)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="border px-4 py-2 rounded"
-          >
-            {statuses.map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
+      <input
+        type="text"
+        placeholder="Search by title or slug..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full max-w-md px-4 py-2 border rounded mb-6"
+      />
 
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/editor"
-            className="inline-flex items-center justify-center bg-indigo-600 text-white px-4 py-2 rounded shadow"
-          >
-            + New Post
-          </Link>
-          <button
-            onClick={logout}
-            className="inline-flex items-center justify-center bg-red-500 text-white px-4 py-2 rounded shadow"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
+      {loading ? (
+        <p>Loading...</p>
+      ) : filtered.length === 0 ? (
+        <p>No posts found.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((post) => (
+            <div
+              key={post.slug}
+              className="p-4 bg-white border rounded-lg shadow hover:shadow-md transition"
+            >
+              <h2 className="font-semibold text-lg text-indigo-800 mb-1">
+                {post.title}
+              </h2>
+              <p className="text-sm text-gray-600">
+                {new Date(post.date || post.createdAt).toLocaleDateString()}
+              </p>
+              <p className="text-sm text-gray-600 mb-1">
+                <strong>Author:</strong> {post.author}
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Status:</strong> {post.status || 'Draft'}
+              </p>
 
-      {/* Posts Table */}
-      <div className="overflow-x-auto mb-6">
-        <table className="min-w-full table-auto border">
-          <thead className="bg-gray-100">
-            <tr>
-              {[
-                "Title",
-                "Date",
-                "Author",
-                "Category",
-                "Status",
-                "Actions",
-              ].map((h) => (
-                <th
-                  key={h}
-                  className="px-4 py-2 border text-left whitespace-nowrap"
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleEdit(post.slug)}
+                  className="text-blue-600 hover:underline text-sm"
                 >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.map((b) => (
-              <tr key={b.slug} className="hover:bg-gray-50">
-                <td className="px-4 py-2 border">{b.title}</td>
-                <td className="px-4 py-2 border">
-                  {new Date(b.date).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-2 border">{b.author}</td>
-                <td className="px-4 py-2 border">
-                  {b.category || "—"}
-                </td>
-                <td className="px-4 py-2 border capitalize">
-                  {b.status}
-                </td>
-                <td className="px-4 py-2 border text-center">
-                  <div className="inline-flex items-center space-x-2">
-                    {!showTrash ? (
-                      <>
-                        <button
-                          onClick={() => handleEdit(b.slug)}
-                          className="text-blue-600 hover:underline"
-                        >
-                          Edit
-                        </button>
-                        <span className="text-gray-400">|</span>
-                        <button
-                          onClick={() => confirmDelete(b.slug)}
-                          className="text-red-600 hover:underline"
-                        >
-                          Trash
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleRestore(b.slug)}
-                          className="text-green-600 hover:underline"
-                        >
-                          Restore
-                        </button>
-                        <span className="text-gray-400">|</span>
-                        <button
-                          onClick={() => confirmDelete(b.slug)}
-                          className="text-red-600 hover:underline"
-                        >
-                          Delete Permanently
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {paginated.length === 0 && (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="text-center py-6 text-gray-500"
+                  Edit
+                </button>
+                <a
+                  href={`/blogs/${encodeURIComponent(post.slug)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-600 hover:underline text-sm"
                 >
-                  No posts found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mb-8">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-            (p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={`px-3 py-1 border rounded ${
-                  p === page
-                    ? "bg-indigo-600 text-white"
-                    : "hover:bg-gray-200"
-                }`}
-              >
-                {p}
-              </button>
-            )
-          )}
+                  View
+                </a>
+                <button
+                  onClick={() => alert('Trash not implemented yet')}
+                  className="text-red-600 hover:underline text-sm"
+                >
+                  Trash
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
-
-      {/* Confirmation Modal */}
-      <ConfirmModal
-        open={!!modalSlug}
-        title={
-          showTrash
-            ? "Delete Permanently?"
-            : "Move to Trash?"
-        }
-        message={
-          showTrash
-            ? "This will permanently delete the post. Are you sure?"
-            : "The post will be moved to Trash. You can restore it later."
-        }
-        onConfirm={handleDelete}
-        onCancel={() => setModalSlug(null)}
-      />
     </div>
-  )
+  );
 }

@@ -22,6 +22,13 @@ export default function BlogHeader({ allPosts = [] }) {
     }
   }, [query, fuse]);
 
+  const getAuthorName = (post) =>
+    post.authorName ||
+    post.author?.fullName ||
+    post.author?.email ||
+    post.author ||
+    "Unknown";
+
   return (
     <header className="sticky top-0 z-50 border-b bg-white shadow-sm w-full">
       <div className="max-w-screen-2xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -58,12 +65,16 @@ export default function BlogHeader({ allPosts = [] }) {
           <div className="max-w-screen-2xl mx-auto px-6 py-3">
             <ul className="divide-y divide-gray-200">
               {results.map((post) => (
-                <li key={post.slug} className="py-2">
-                  <Link href={`/blog/${post.slug}`}>
+                <li key={post.slug?.trim()}
+ className="py-2">
+                  <Link href={`/blogs/${post.slug}`}>
                     <span className="text-blue-600 hover:underline cursor-pointer font-medium">
                       {post.title}
                     </span>
                   </Link>
+                  <p className="text-gray-500 text-sm">
+                    By {getAuthorName(post)}
+                  </p>
                   {post.excerpt && (
                     <p className="text-gray-500 text-sm">{post.excerpt}</p>
                   )}

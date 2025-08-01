@@ -1,14 +1,18 @@
 // services/AuthorApi.js
 
 /**
- * Fetch author “record” (for now stubbed out — replace with a real API later)
+ * Fetch author data by slug from the backend API
  */
 export async function getAuthorBySlug(slug) {
-  // TODO: replace with fetch('/api/authors/'+slug)
-  return {
-    name: slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-    bio: "This author hasn’t added a bio yet.",
-    avatar: "", // or a default URL
+  try {
+    const res = await fetch(`/api/authors/${slug}`);
+    if (!res.ok) throw new Error(`Failed to fetch author: ${slug}`);
+
+    const data = await res.json();
+    return data.author || null;
+  } catch (err) {
+    console.error("getAuthorBySlug error:", err);
+    return null;
   }
 }
 
@@ -16,7 +20,14 @@ export async function getAuthorBySlug(slug) {
  * Fetch all posts by this author slug
  */
 export async function getPostsByAuthor(slug) {
-  const res = await fetch(`/api/blogs?author=${encodeURIComponent(slug)}`)
-  if (!res.ok) throw new Error(`Failed to fetch posts for ${slug}`)
-  return res.json()
+  try {
+    const res = await fetch(`/api/blogs?authorSlug=${encodeURIComponent(slug)}`);
+    if (!res.ok) throw new Error(`Failed to fetch posts for author: ${slug}`);
+
+    const data = await res.json();
+    return Array.isArray(data.posts) ? data.posts : [];
+  } catch (err) {
+    console.error("getPostsByAuthor error:", err);
+    return [];
+  }
 }

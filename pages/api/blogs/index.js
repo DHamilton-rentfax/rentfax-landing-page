@@ -1,136 +1,123 @@
-import connectDB from "@/lib/mongodb";
-import Blog from "@/models/Post";
-import allowCors from "@/middleware/cors";
+// pages/api/auth/blogs/index.js
 
-async function handler(req, res) {
+import connectDB from '@/lib/mongodb';
+import Blog from '@/models/Post';
+import User from '@/models/User';
+import '@/models/Author'; // ensure author model is registered
+import { verifyToken } from '@/lib/auth';
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
   await connectDB();
 
-  if (req.method === "GET") {
+  if (req.method === 'GET') {
     try {
-      const showDeleted = req.query?.deleted === "true";
+      const token = req.cookies?.token || null;
+      let isAdmin = false;
 
-      const query = showDeleted
-        ? { deleted: true }
+      if (token) {
+        try {
+          const decoded = verifyToken(token);
+          const adminUser = await User.findById(decoded.id);
+          if (adminUser?.role === 'admin') isAdmin = true;
+        } catch (err) {
+          console.warn("Invalid token in GET /api/auth/blogs");
+        }
+      }
+
+      const query = isAdmin
+        ? {}
         : {
-            $or: [{ deleted: false }, { deleted: { $exists: false } }],
-            status: "published",
-            title: { $exists: true, $ne: "" },
-            content: { $exists: true, $ne: "" },
+            deleted: { $ne: true },
+            status: 'published',
+            title: { $exists: true, $ne: '' },
+            content: { $exists: true, $ne: '' }
           };
 
-      const blogs = await Blog.find(query).sort({ createdAt: -1 }).lean();
+      const blogs = await Blog.find(query)
+        .populate('author', 'fullName email avatar bio')
+        .sort({ createdAt: -1 })
+        .lean();
 
-      const posts = blogs.map((b) => ({
-        slug: b.slug,
-        title: b.title,
-        excerpt: b.excerpt || "",
-        image: b.featuredImage || "",
-        author: b.author || "Unknown",
-        category: (b.category || "uncategorized").toLowerCase(),
-        date: b.createdAt?.toISOString() || null,
-        status: b.deleted ? "Trash" : b.status === "published" ? "Published" : "Draft",
-        deleted: !!b.deleted,
-      }));
+      const adapted = blogs.map((blog) => {
+        const isPopulated = blog.author && typeof blog.author === 'object';
 
-      return res.status(200).json({ success: true, posts });
-    } catch (err) {
-      console.error("[GET /api/blogs] Error:", err);
-      return res.status(500).json({
-        success: false,
-        error: "Failed to fetch blog posts.",
+        const authorName = isPopulated
+          ? blog.author.fullName || blog.author.email || blog.authorName || 'Unknown'
+          : blog.authorName || (typeof blog.author === 'string' ? blog.author : 'Unknown');
+
+        const authorAvatar = isPopulated ? blog.author.avatar || '' : '';
+        const authorBio = isPopulated ? blog.author.bio || '' : '';
+
+        return {
+          slug: blog.slug?.trim(),
+          title: blog.title,
+          excerpt: blog.excerpt || '',
+          content: blog.content || '',
+          image: blog.featuredImage || '',
+          author: authorName,
+          authorName,
+          authorAvatar,
+          authorBio,
+          category: blog.category || '',
+          date: blog.date?.toISOString() || blog.createdAt?.toISOString() || null,
+          status: blog.deleted ? 'Trash' : blog.status === 'published' ? 'Published' : 'Draft',
+          deleted: !!blog.deleted,
+          views: blog.views || 0,
+        };
       });
+
+      console.log(`[BLOG_GET] ${new Date().toISOString()} - Adapted ${adapted.length} blogs`);
+      return res.status(200).json({ success: true, posts: adapted });
+    } catch (err) {
+      console.error('[Blog API Error - GET]', err);
+      return res.status(500).json({ error: 'Failed to fetch blogs' });
     }
   }
 
-  if (req.method === "POST") {
+  if (req.method === 'POST') {
     try {
-      const {
-        title = "",
-        slug = "",
-        content = "",
-        excerpt = "",
-        featuredImage = "",
-        subtitle = "",
-        tags = [],
-        metaTitle,
-        metaDescription,
-        keywords = "",
-        author = "Admin",
-        category = "uncategorized",
-        status = "draft",
-        date = new Date(),
-      } = req.body;
+      const token = req.cookies?.token;
+      if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
-      const trimmedSlug = slug.trim().toLowerCase();
-      const trimmedTitle = title.trim();
-      const trimmedContent = content.trim();
+      const decoded = verifyToken(token);
+      const user = await User.findById(decoded.id);
+      if (!user) return res.status(401).json({ error: 'User not found' });
 
-      if (!trimmedTitle || !trimmedSlug || !trimmedContent) {
-        return res.status(400).json({
-          success: false,
-          error: "Missing required fields: title, slug, or content.",
-        });
-      }
-
-      // 🔒 Ensure unique slug
-      const existing = await Blog.findOne({ slug: trimmedSlug });
-      if (existing) {
-        return res.status(400).json({
-          success: false,
-          error: "Slug already exists. Please choose a unique slug.",
-        });
-      }
-
-      const newBlog = new Blog({
-        title: trimmedTitle,
-        subtitle: subtitle?.trim() || "",
-        slug: trimmedSlug,
-        content: trimmedContent,
-        excerpt: excerpt?.trim() || "",
-        featuredImage,
-        tags,
-        metaTitle: metaTitle?.trim() || trimmedTitle,
-        metaDescription: metaDescription?.trim() || excerpt?.trim() || "",
-        keywords: keywords?.trim() || "",
-        author: author?.trim() || "Admin",
-        category: category?.trim().toLowerCase() || "uncategorized",
-        status,
-        date,
-        deleted: false,
+      const blog = new Blog({
+        ...req.body,
+        author: user._id,
+        authorName: user.fullName || user.email || 'Unknown',
       });
 
-      await newBlog.save();
+      await blog.save();
+
+      console.log(`[BLOG_POST] ${new Date().toISOString()} - Blog created by ${blog.authorName}`);
 
       return res.status(201).json({
-        success: true,
-        post: {
-          slug: newBlog.slug,
-          title: newBlog.title,
-          excerpt: newBlog.excerpt,
-          image: newBlog.featuredImage,
-          author: newBlog.author,
-          category: newBlog.category,
-          date: newBlog.createdAt?.toISOString() || null,
-          status: newBlog.status === "published" ? "Published" : "Draft",
-          deleted: false,
-        },
+        slug: blog.slug?.trim(),
+        title: blog.title,
+        excerpt: blog.excerpt,
+        content: blog.content,
+        image: blog.featuredImage || '',
+        author: blog.authorName,
+        authorName: blog.authorName,
+        authorAvatar: user.avatar || '',
+        authorBio: user.bio || '',
+        category: blog.category || '',
+        date: blog.date?.toISOString() || blog.createdAt?.toISOString() || null,
+        status: blog.status === 'published' ? 'Published' : 'Draft',
+        deleted: false,
       });
     } catch (err) {
-      console.error("[POST /api/blogs] Error:", err);
-      return res.status(500).json({
-        success: false,
-        error: "Failed to create blog post.",
-      });
+      console.error('[Blog API Error - POST]', err);
+      return res.status(500).json({ error: 'Failed to create blog' });
     }
   }
 
-  // Method not allowed
-  res.setHeader("Allow", ["GET", "POST"]);
-  return res.status(405).json({
-    success: false,
-    error: `Method ${req.method} not allowed.`,
-    allowed: ["GET", "POST"],
-  });
+  return res.status(405).json({ error: 'Method not allowed' });
 }
-
-export default allowCors(handler);

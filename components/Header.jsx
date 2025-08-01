@@ -87,7 +87,8 @@ export default function Header() {
             <ul className="absolute bg-white border rounded shadow top-full mt-1 w-full z-50 max-h-64 overflow-auto text-sm">
               {results.map((post) => (
                 <li
-                  key={post.slug}
+                  key={post.slug?.trim()}
+
                   onClick={() => handleSelect(post.slug)}
                   className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                 >

@@ -1,82 +1,51 @@
-// pages/blogs/[slug].jsx
-import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
-import { Bar } from "react-chartjs-2";
-import "chart.js/auto";
+// pages/api/auth/blogs/[slug].js
+import connectDB from "@/lib/mongodb";
+import Blog from "@/models/Post";
 
-export default function BlogPost() {
-  const router = useRouter();
-  const { slug } = router.query;
-  const [blog, setBlog] = useState(null);
-  const [error, setError] = useState(null);
+export default async function handler(req, res) {
+  await connectDB();
 
-  useEffect(() => {
-    if (!slug) return;
+  const { slug } = req.query;
 
-    const fetchBlog = async () => {
-      try {
-        const res = await fetch(`/api/blogs/${slug}`);
-        if (!res.ok) throw new Error(`Status ${res.status}`);
-        const data = await res.json();
-        setBlog(data.blog || data); // support both { blog } and raw
-      } catch (err) {
-        console.error("❌ Failed to load blog", err);
-        setError("Could not load blog post.");
-      }
-    };
+  try {
+    const blog = await Blog.findOne({
+      slug: slug.trim(),
+      status: { $regex: /^published$/i },
+      deleted: { $ne: true },
+    })
+      .populate("author", "fullName email avatar bio")
+      .lean();
 
-    fetchBlog();
-  }, [slug]);
+    if (!blog) {
+      console.warn("[BLOG] Not found:", slug);
+      return res.status(404).json({ success: false, error: "Blog not found" });
+    }
 
-  if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
-  if (!blog) return <div className="p-10 text-center">Loading...</div>;
+    const authorName =
+      blog.author?.fullName || blog.author?.email || blog.authorName || "Unknown";
 
-  // Sort and prepare view data
-  const sortedDates = Object.keys(blog.viewsByDate || {}).sort(
-    (a, b) => new Date(a) - new Date(b)
-  );
-  const viewData = sortedDates.map((date) => blog.viewsByDate[date]);
-
-  return (
-    <div className="max-w-4xl mx-auto px-6 py-12">
-      <h1 className="text-4xl font-bold mb-2">{blog.title}</h1>
-      {blog.subtitle && <p className="text-gray-500 mb-4">{blog.subtitle}</p>}
-
-      <p className="text-sm text-gray-400 mb-6">
-        {blog.date ? new Date(blog.date).toLocaleDateString() : "Unknown date"} •{" "}
-        {blog.author || "Unknown author"} • {blog.views ?? 0} views
-      </p>
-
-      <div
-        className="prose max-w-none"
-        dangerouslySetInnerHTML={{ __html: blog.content }}
-      />
-
-      {sortedDates.length > 0 && (
-        <div className="mt-12">
-          <h2 className="text-xl font-bold mb-4">📈 Daily Views</h2>
-          <Bar
-            data={{
-              labels: sortedDates,
-              datasets: [
-                {
-                  label: "Daily Views",
-                  data: viewData,
-                  backgroundColor: "rgba(99, 102, 241, 0.5)",
-                },
-              ],
-            }}
-            options={{
-              responsive: true,
-              plugins: { legend: { display: false } },
-              scales: {
-                x: { title: { display: true, text: "Date" } },
-                y: { title: { display: true, text: "Views" } },
-              },
-            }}
-          />
-        </div>
-      )}
-    </div>
-  );
+    res.status(200).json({
+      success: true,
+      post: {
+        _id: blog._id.toString(),
+        slug: blog.slug,
+        title: blog.title,
+        subtitle: blog.subtitle || "",
+        content: blog.content,
+        excerpt: blog.excerpt || "",
+        image: blog.featuredImage || blog.image || "",
+        author: authorName,
+        authorName,
+        authorAvatar: blog.author?.avatar || "",
+        authorBio: blog.author?.bio || "",
+        category: blog.category || "",
+        date: blog.date?.toISOString() || blog.createdAt?.toISOString() || null,
+        views: blog.views || 0,
+        viewsByDate: blog.viewsByDate || {},
+      },
+    });
+  } catch (err) {
+    console.error("[BLOG ERROR]", err);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
 }

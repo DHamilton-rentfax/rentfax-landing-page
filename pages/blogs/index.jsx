@@ -111,7 +111,8 @@ export default function BlogList() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {trending.map((post) => (
             <Link
-              key={post.slug}
+              key={post.slug?.trim()}
+
               href={`/blogs/${post.slug}`}
               className="group rounded-xl bg-white shadow hover:shadow-lg transition"
             >
@@ -141,7 +142,8 @@ export default function BlogList() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {gridPosts.map((post) => (
             <Link
-              key={post.slug}
+              key={post.slug?.trim()}
+
               href={`/blogs/${post.slug}`}
               className="group block overflow-hidden rounded-xl bg-white shadow hover:shadow-md transition"
             >

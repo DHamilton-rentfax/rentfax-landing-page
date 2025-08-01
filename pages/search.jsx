@@ -77,7 +77,8 @@ export default function SearchResults() {
       )}
 
       {results.map((post) => (
-        <div key={post.slug} className="mb-6 border-b pb-4">
+        <div key={post.slug?.trim()}
+ className="mb-6 border-b pb-4">
           <Link href={`/blogs/${post.slug}`}>
             <h2 className="text-lg font-semibold text-indigo-600 hover:underline truncate">
               {post.highlight?.find((h) => h.key === 'title')

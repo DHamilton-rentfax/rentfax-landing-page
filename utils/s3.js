@@ -20,10 +20,15 @@ export async function uploadToS3(buffer, fileName, fileType) {
     ContentType: fileType,
   });
 
-  await s3.send(command);
-
-  return {
-    Location: `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,
-    Key: key,
-  };
+  try {
+    await s3.send(command);
+    return {
+      Location: `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,
+      Key: key,
+    };
+  } catch (err) {
+    console.error("❌ S3 Upload Error:", err);
+    throw new Error("S3 upload failed");
+  }
 }
+

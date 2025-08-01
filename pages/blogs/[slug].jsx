@@ -2,11 +2,6 @@ import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Bar } from "react-chartjs-2";
-import ReadingProgressBar from "@/components/ReadingProgressBar";
-import ShareButtons from "@/components/ShareButtons";
-import AuthorCard from "@/components/AuthorCard";
-import NewsletterCTA from "@/components/NewsletterCTA";
-import useScrollAnalytics from "@/hooks/useScrollAnalytics";
 import {
   Chart as ChartJS,
   BarElement,
@@ -15,45 +10,30 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-
-import CommentSection from "@/components/CommentSection";
+import connectDB from "@/lib/mongodb";
+import Blog from "@/models/Post";
+import ReadingProgressBar from "@/components/ReadingProgressBar";
+import ShareButtons from "@/components/ShareButtons";
+import AuthorCard from "@/components/AuthorCard";
+import NewsletterCTA from "@/components/NewsletterCTA";
+import useScrollAnalytics from "@/hooks/useScrollAnalytics";
 import ViewCounter from "@/components/ViewCounter";
+import CommentSection from "@/components/CommentSection";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
-
-// ✅ FIXED baseUrl logic
-export async function getServerSideProps({ params, req }) {
-  const protocol = req.headers["x-forwarded-proto"] || "http";
-  const host = req.headers.host;
-  const baseUrl = `${protocol}://${host}`;
-
-  try {
-    const res = await fetch(`${baseUrl}/api/blogs/${params.slug}`);
-    if (!res.ok) return { notFound: true };
-    const post = await res.json();
-
-    const allRes = await fetch(`${baseUrl}/api/blogs`);
-    const allData = await allRes.json();
-
-    const posts = Array.isArray(allData.posts) ? allData.posts : [];
-    const index = posts.findIndex((p) => p.slug === params.slug);
-    const prevPost = posts[index - 1] || null;
-    const nextPost = posts[index + 1] || null;
-
-    return { props: { post, prevPost, nextPost } };
-  } catch (err) {
-    console.error("Blog fetch error:", err);
-    return { notFound: true };
-  }
-}
 
 export default function BlogPost({ post, prevPost, nextPost }) {
   const [related, setRelated] = useState([]);
   useScrollAnalytics(post._id);
 
   useEffect(() => {
-    if (!post?.tags?.length) return;
+    if (post?.slug) {
+      fetch(`/api/blogs/${post.slug}/view`, { method: "POST" });
+    }
+  }, [post?.slug]);
 
+  useEffect(() => {
+    if (!post?.tags?.length) return;
     fetch("/api/blogs/related", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -88,30 +68,17 @@ export default function BlogPost({ post, prevPost, nextPost }) {
 
   const chartOptions = {
     plugins: { legend: { display: false } },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { stepSize: 1 },
-      },
-    },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
   };
 
   return (
     <>
       <Head>
-        <title>{post.metaTitle || post.title} – RentFAX Blog</title>
-        <meta
-          name="description"
-          content={post.metaDescription || post.excerpt || ""}
-        />
+        <title>{`${post.metaTitle || post.title} – RentFAX Blog`}</title>
+        <meta name="description" content={post.metaDescription || post.excerpt || ""} />
         <meta property="og:title" content={post.title} />
-        <meta
-          property="og:description"
-          content={post.metaDescription || post.excerpt || ""}
-        />
-        {post.featuredImage && (
-          <meta property="og:image" content={post.featuredImage} />
-        )}
+        <meta property="og:description" content={post.metaDescription || post.excerpt || ""} />
+        {post.featuredImage && <meta property="og:image" content={post.featuredImage} />}
       </Head>
 
       <ReadingProgressBar />
@@ -127,27 +94,16 @@ export default function BlogPost({ post, prevPost, nextPost }) {
           )}
 
           <h1 className="text-4xl font-bold mb-2">{post.title}</h1>
-          {post.subtitle && (
-            <h2 className="text-xl text-gray-600 mb-4">{post.subtitle}</h2>
-          )}
-          {post.excerpt && (
-            <p className="text-gray-600 mb-6">{post.excerpt}</p>
-          )}
+          {post.subtitle && <h2 className="text-xl text-gray-600 mb-4">{post.subtitle}</h2>}
+          {post.excerpt && <p className="text-gray-600 mb-6">{post.excerpt}</p>}
 
           <div className="flex items-center gap-3 text-sm text-gray-500 mb-10">
             <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-indigo-700">
-              {post.author?.[0]?.toUpperCase() || "?"}
+              {post.authorName?.[0]?.toUpperCase() || "?"}
             </div>
-            <Link
-              href={`/authors/${post.authorSlug || post.author || "admin"}`}
-              className="font-medium text-gray-700 hover:underline"
-            >
-              {post.author || "Admin"}
-            </Link>
+            <span className="font-medium text-gray-700">{post.authorName || "Admin"}</span>
             <span>•</span>
-            <span>
-              {new Date(post.date || post.updatedAt).toLocaleDateString()}
-            </span>
+            <span>{new Date(post.date || post.updatedAt).toLocaleDateString()}</span>
             <span>•</span>
             <span>{estimateReadTime(post.content)} min read</span>
           </div>
@@ -156,33 +112,29 @@ export default function BlogPost({ post, prevPost, nextPost }) {
             <div dangerouslySetInnerHTML={{ __html: post.content }} />
           </article>
 
-          {/* ✅ DOMAIN FIXED */}
-          <ShareButtons
-            url={`https://rentfax.io/blogs/${post.slug}`}
-            title={post.title}
-          />
-
+          <ShareButtons url={`https://rentfax.io/blogs/${post.slug}`} title={post.title} />
           <AuthorCard
-            name={post.author}
-            bio={post.authorBio}
-            avatar={post.authorAvatar}
+            name={post.authorName || "Unknown Author"}
+            bio={post.authorBio || "No author bio available."}
+            avatar={
+              post.authorAvatar ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                post.authorName || "A"
+              )}&background=6D28D9&color=fff&rounded=true`
+            }
           />
-
           <NewsletterCTA />
 
           <div className="mt-4 mb-6 text-sm text-gray-500">
             <ViewCounter postId={post._id} />
             <span className="ml-2">
-              Last updated{" "}
-              {new Date(post.updatedAt || post.date).toLocaleDateString()}
+              Last updated {new Date(post.updatedAt || post.date).toLocaleDateString()}
             </span>
           </div>
 
           {weeklyViews.length > 0 && (
             <div className="mt-6">
-              <h4 className="font-semibold text-gray-800 mb-3">
-                Traffic (Last 7 Days)
-              </h4>
+              <h4 className="font-semibold text-gray-800 mb-3">Traffic (Last 7 Days)</h4>
               <Bar data={chartData} options={chartOptions} />
             </div>
           )}
@@ -196,11 +148,7 @@ export default function BlogPost({ post, prevPost, nextPost }) {
             {related.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {related.map((r) => (
-                  <Link
-                    href={`/blogs/${r.slug}`}
-                    key={r._id}
-                    className="block p-4 border rounded hover:shadow-md transition"
-                  >
+                  <Link href={`/blogs/${r.slug}`} key={r._id} className="block p-4 border rounded hover:shadow-md transition">
                     <h4 className="font-semibold text-lg mb-2">{r.title}</h4>
                     <p className="text-sm text-gray-600">{r.excerpt}</p>
                   </Link>
@@ -210,29 +158,43 @@ export default function BlogPost({ post, prevPost, nextPost }) {
               <p className="text-gray-500">No related posts found.</p>
             )}
           </div>
-
-          <div className="mt-20 grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-10">
-            {prevPost && (
-              <Link
-                href={`/blogs/${prevPost.slug}`}
-                className="block p-4 border rounded hover:shadow-md transition"
-              >
-                <h4 className="font-semibold text-lg mb-2">← Previous Post</h4>
-                <p className="text-sm text-gray-600">{prevPost.title}</p>
-              </Link>
-            )}
-            {nextPost && (
-              <Link
-                href={`/blogs/${nextPost.slug}`}
-                className="block p-4 border rounded hover:shadow-md transition"
-              >
-                <h4 className="font-semibold text-lg mb-2">Next Post →</h4>
-                <p className="text-sm text-gray-600">{nextPost.title}</p>
-              </Link>
-            )}
-          </div>
         </div>
       </section>
     </>
   );
+}
+
+// ✅ Server-side props to avoid 404s
+export async function getServerSideProps({ params }) {
+  await connectDB();
+
+  const blog = await Blog.findOne({
+    slug: params.slug,
+    status: { $regex: /^published$/i },
+    deleted: { $ne: true },
+  }).lean();
+
+  if (!blog) {
+    console.warn(`[SLUG ERROR] Blog not found for slug: ${params.slug}`);
+    return { notFound: true };
+  }
+
+  const allBlogs = await Blog.find(
+    { status: { $regex: /^published$/i }, deleted: { $ne: true } },
+    "slug title"
+  ).lean();
+
+  const index = allBlogs.findIndex((p) => p.slug === blog.slug);
+  const cleanPost = (p) => (p ? { slug: p.slug, title: p.title } : null);
+
+  return {
+    props: {
+      post: {
+        ...JSON.parse(JSON.stringify(blog)),
+        _id: blog._id.toString(), // ensures _id exists for view tracker
+      },
+      prevPost: cleanPost(allBlogs[index - 1]),
+      nextPost: cleanPost(allBlogs[index + 1]),
+    },
+  };
 }

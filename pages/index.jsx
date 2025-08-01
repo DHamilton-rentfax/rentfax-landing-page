@@ -1,4 +1,3 @@
-// pages/index.jsx
 import Head from "next/head"
 import Hero from "@/components/Hero"
 import Features from "@/components/Features"
@@ -7,13 +6,23 @@ import Pricing from "@/components/Pricing"
 import BlogList from "@/components/BlogList"
 
 export async function getServerSideProps() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.API_URL || "http://localhost:3000";
+
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/blogs`)
-    const blogs = await res.json()
-    return { props: { blogs } }
+    const res = await fetch(`${siteUrl}/api/blogs`);
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`❌ Blog fetch failed: ${res.status} ${text}`);
+      return { props: { blogs: [] } };
+    }
+
+    const data = await res.json();
+    return { props: { blogs: data?.posts || [] } };
+
   } catch (err) {
-    console.error("Blog fetch error:", err)
-    return { props: { blogs: [] } }
+    console.error("❌ Blog fetch error:", err);
+    return { props: { blogs: [] } };
   }
 }
 
@@ -66,5 +75,5 @@ export default function Home({ blogs }) {
         © {new Date().getFullYear()} RentFAX. All rights reserved.
       </footer>
     </>
-  )
+  );
 }
